@@ -15,12 +15,8 @@ if ! command -v uv &>/dev/null; then
 fi
 
 # Install mergify-cli
-PYTHON_VERSION="$(plugin_config PYTHON_VERSION "")"
-if [[ -n "$PYTHON_VERSION" ]]; then
-  uv tool install --python "$PYTHON_VERSION" mergify-cli
-else
-  uv tool install mergify-cli
-fi
+PYTHON_VERSION="$(plugin_config PYTHON_VERSION "3.13")"
+uv tool install --python "$PYTHON_VERSION" mergify-cli
 
 # Verify installation
 if ! command -v mergify &>/dev/null; then
