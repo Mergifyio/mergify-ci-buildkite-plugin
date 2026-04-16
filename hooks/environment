@@ -16,7 +16,11 @@ fi
 
 # Install mergify-cli
 PYTHON_VERSION="$(plugin_config PYTHON_VERSION "3.13")"
-uv tool install --python "$PYTHON_VERSION" mergify-cli
+if [[ "$PYTHON_VERSION" == "system" ]]; then
+  uv tool install mergify-cli
+else
+  uv tool install --python "$PYTHON_VERSION" mergify-cli
+fi
 
 # Verify installation
 if ! command -v mergify &>/dev/null; then
