@@ -14,10 +14,11 @@ setup_output_capture() {
 }
 
 # Parse a simple key=value from the captured output file.
+# Returns empty string if the key is not found.
 parse_output() {
   local file="$1"
   local key="$2"
-  grep "^${key}=" "$file" | head -1 | cut -d= -f2-
+  grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2- || true
 }
 
 run_scopes_git_refs() {
