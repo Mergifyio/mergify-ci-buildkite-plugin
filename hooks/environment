@@ -15,11 +15,17 @@ if ! command -v uv &>/dev/null; then
 fi
 
 # Install mergify-cli
-uv tool install mergify-cli
+PYTHON_VERSION="$(plugin_config PYTHON_VERSION "")"
+if [[ -n "$PYTHON_VERSION" ]]; then
+  uv tool install --python "$PYTHON_VERSION" mergify-cli
+else
+  uv tool install mergify-cli
+fi
 
 # Verify installation
 if ! command -v mergify &>/dev/null; then
-  log_error "mergify-cli installation failed. Ensure Python 3.x is available on the agent."
+  log_error "mergify-cli installation failed."
+  log_error "Try setting python_version in the plugin config (e.g., python_version: '3.13')."
   exit 1
 fi
 

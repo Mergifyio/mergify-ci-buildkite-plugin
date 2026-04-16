@@ -162,6 +162,7 @@ steps:
 | `mergify_api_url` | no | `https://api.mergify.com` | Mergify API endpoint |
 | `job_name` | no | Step label | Override job name (useful for matrix builds) |
 | `mergify_config_path` | no | — | Path to `.mergify.yml` configuration file |
+| `python_version` | no | system default | Python version for `mergify-cli` (e.g., `3.13`). Uses `uv` to download it if needed. |
 
 ## Meta-data
 

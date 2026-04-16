@@ -26,6 +26,8 @@ configuration:
       type: string
     mergify_config_path:
       type: string
+    python_version:
+      type: string
   required:
     - action
   additionalProperties: false
