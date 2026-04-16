@@ -1,0 +1,26 @@
+#!/bin/bash
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/shared.sh
+source "${DIR}/../lib/shared.sh"
+
+log_info "Installing mergify-cli..."
+
+# Install uv if not available
+if ! command -v uv &>/dev/null; then
+  echo "uv not found, installing..."
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
+# Install mergify-cli
+uv tool install mergify-cli
+
+# Verify installation
+if ! command -v mergify &>/dev/null; then
+  log_error "mergify-cli installation failed. Ensure Python 3.x is available on the agent."
+  exit 1
+fi
+
+mergify --version
