@@ -1,4 +1,4 @@
-name: Mergify
+name: Mergify CI
 description: Mergify integration for Buildkite — JUnit processing, scope detection, and scope upload
 author: https://github.com/mergifyio
 requirements:

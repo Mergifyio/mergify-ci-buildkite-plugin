@@ -1,4 +1,4 @@
-# Mergify Buildkite Plugin
+# Mergify CI Buildkite Plugin
 
 A Buildkite plugin for integrating with [Mergify CI Insights](https://mergify.com) — upload JUnit test reports, detect pull request scopes, and upload scopes to Mergify Merge Queue.
 
@@ -13,7 +13,7 @@ steps:
   - label: "Run tests"
     command: pytest --junitxml=reports/junit.xml
     plugins:
-      - mergifyio/mergify#v1:
+      - mergifyio/mergify-ci#v1:
           action: junit-process
           report_path: "reports/*.xml"
           token: "${MERGIFY_CI_TOKEN}"
@@ -27,7 +27,7 @@ Detect which code scopes are affected by a pull request and upload them to the M
 steps:
   - label: "Detect scopes"
     plugins:
-      - mergifyio/mergify#v1:
+      - mergifyio/mergify-ci#v1:
           action: scopes
           token: "${MERGIFY_CI_TOKEN}"
 ```
@@ -41,7 +41,7 @@ steps:
   - label: "Get git refs"
     key: git-refs
     plugins:
-      - mergifyio/mergify#v1:
+      - mergifyio/mergify-ci#v1:
           action: scopes-git-refs
 ```
 
@@ -54,13 +54,13 @@ steps:
   - label: "Get git refs"
     key: git-refs
     plugins:
-      - mergifyio/mergify#v1:
+      - mergifyio/mergify-ci#v1:
           action: scopes-git-refs
 
   - label: "Upload scopes"
     depends_on: git-refs
     plugins:
-      - mergifyio/mergify#v1:
+      - mergifyio/mergify-ci#v1:
           action: scopes-upload
           token: "${MERGIFY_CI_TOKEN}"
           scopes: "backend,frontend"

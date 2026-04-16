@@ -7,7 +7,7 @@ setup() {
 
 @test "scopes-git-refs: stores base and head in meta-data" {
   stub_mergify_git_refs "abc123" "def456"
-  export BUILDKITE_PLUGIN_MERGIFY_ACTION="scopes-git-refs"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-git-refs"
 
   run bash hooks/command
 
@@ -18,7 +18,7 @@ setup() {
 
 @test "scopes: detects scopes and stores in meta-data" {
   stub_mergify_scopes "abc123" "def456" '{"backend": "true", "frontend": "false"}'
-  export BUILDKITE_PLUGIN_MERGIFY_ACTION="scopes"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
 
   run bash hooks/command
 
@@ -30,8 +30,8 @@ setup() {
 
 @test "scopes: uploads when token is set" {
   stub_mergify_scopes "abc123" "def456" '{"backend": "true"}'
-  export BUILDKITE_PLUGIN_MERGIFY_ACTION="scopes"
-  export BUILDKITE_PLUGIN_MERGIFY_TOKEN="test-token"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
 
   run bash hooks/command
 
@@ -41,7 +41,7 @@ setup() {
 
 @test "scopes: warns when token is not set" {
   stub_mergify_scopes "abc123" "def456" '{"backend": "true"}'
-  export BUILDKITE_PLUGIN_MERGIFY_ACTION="scopes"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
 
   run bash hooks/command
 
@@ -56,9 +56,9 @@ setup() {
   echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
 
   stub_mergify_scopes "abc123" "def456" '{}'
-  export BUILDKITE_PLUGIN_MERGIFY_ACTION="scopes-upload"
-  export BUILDKITE_PLUGIN_MERGIFY_SCOPES="backend,frontend"
-  export BUILDKITE_PLUGIN_MERGIFY_TOKEN="test-token"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES="backend,frontend"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
 
   run bash hooks/command
 
@@ -71,8 +71,8 @@ setup() {
   echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
 
   stub_buildkite_agent
-  export BUILDKITE_PLUGIN_MERGIFY_ACTION="scopes-upload"
-  export BUILDKITE_PLUGIN_MERGIFY_TOKEN="test-token"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
 
   run bash hooks/command
 
@@ -80,7 +80,7 @@ setup() {
 }
 
 @test "command: falls through to user command for junit-process" {
-  export BUILDKITE_PLUGIN_MERGIFY_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
   export BUILDKITE_COMMAND="echo hello-from-user-command"
 
   run bash hooks/command
@@ -90,7 +90,7 @@ setup() {
 }
 
 @test "command: fails for invalid action" {
-  export BUILDKITE_PLUGIN_MERGIFY_ACTION="invalid-action"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="invalid-action"
 
   run bash hooks/command
 
