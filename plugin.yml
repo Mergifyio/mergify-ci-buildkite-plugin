@@ -1,6 +1,6 @@
 name: Mergify
 description: Mergify integration for Buildkite — JUnit processing, scope detection, and scope upload
-author: https://github.com/mergify
+author: https://github.com/mergifyio
 requirements:
   - curl
   - bash

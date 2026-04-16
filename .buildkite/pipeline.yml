@@ -9,7 +9,7 @@ steps:
   - label: ":junit: Test junit-process"
     command: "echo 'Test run complete'"
     plugins:
-      - mergify/mergify#${BUILDKITE_COMMIT}:
+      - mergifyio/mergify#${BUILDKITE_COMMIT}:
           action: junit-process
           report_path: "zfixtures/junit_example.xml"
           token: "${MERGIFY_CI_TOKEN}"
@@ -18,13 +18,13 @@ steps:
   - label: ":mag: Test scopes-git-refs"
     key: test-git-refs
     plugins:
-      - mergify/mergify#${BUILDKITE_COMMIT}:
+      - mergifyio/mergify#${BUILDKITE_COMMIT}:
           action: scopes-git-refs
 
   - label: ":upload: Test scopes-upload"
     depends_on: test-git-refs
     plugins:
-      - mergify/mergify#${BUILDKITE_COMMIT}:
+      - mergifyio/mergify#${BUILDKITE_COMMIT}:
           action: scopes-upload
           scopes: "backend,frontend"
           token: "${MERGIFY_CI_TOKEN}"
@@ -32,7 +32,7 @@ steps:
 
   - label: ":mag: Test scopes"
     plugins:
-      - mergify/mergify#${BUILDKITE_COMMIT}:
+      - mergifyio/mergify#${BUILDKITE_COMMIT}:
           action: scopes
           token: "${MERGIFY_CI_TOKEN}"
           mergify_api_url: "http://localhost:1080"

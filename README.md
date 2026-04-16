@@ -13,7 +13,7 @@ steps:
   - label: "Run tests"
     command: pytest --junitxml=reports/junit.xml
     plugins:
-      - mergify/mergify#v1:
+      - mergifyio/mergify#v1:
           action: junit-process
           report_path: "reports/*.xml"
           token: "${MERGIFY_CI_TOKEN}"
@@ -27,7 +27,7 @@ Detect which code scopes are affected by a pull request and upload them to the M
 steps:
   - label: "Detect scopes"
     plugins:
-      - mergify/mergify#v1:
+      - mergifyio/mergify#v1:
           action: scopes
           token: "${MERGIFY_CI_TOKEN}"
 ```
@@ -41,7 +41,7 @@ steps:
   - label: "Get git refs"
     key: git-refs
     plugins:
-      - mergify/mergify#v1:
+      - mergifyio/mergify#v1:
           action: scopes-git-refs
 ```
 
@@ -54,13 +54,13 @@ steps:
   - label: "Get git refs"
     key: git-refs
     plugins:
-      - mergify/mergify#v1:
+      - mergifyio/mergify#v1:
           action: scopes-git-refs
 
   - label: "Upload scopes"
     depends_on: git-refs
     plugins:
-      - mergify/mergify#v1:
+      - mergifyio/mergify#v1:
           action: scopes-upload
           token: "${MERGIFY_CI_TOKEN}"
           scopes: "backend,frontend"
