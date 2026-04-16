@@ -66,6 +66,91 @@ steps:
           scopes: "backend,frontend"
 ```
 
+### Using scopes to conditionally run steps
+
+Detect scopes first, then use the meta-data to skip steps unaffected by the change:
+
+```yaml
+steps:
+  - label: "Detect scopes"
+    key: scopes
+    plugins:
+      - mergifyio/mergify-ci#v1:
+          action: scopes
+          token: "${MERGIFY_CI_TOKEN}"
+
+  - label: "Backend tests"
+    depends_on: scopes
+    command: pytest tests/backend/
+    if: build.env("BUILDKITE_TRIGGERED_FROM_BUILD_PIPELINE_SLUG") != null || build.pull_request.id != null
+    plugins:
+      - mergifyio/mergify-ci#v1:
+          action: junit-process
+          report_path: "reports/*.xml"
+          token: "${MERGIFY_CI_TOKEN}"
+    # Use a dynamic pipeline or script to check scopes:
+    # SCOPES=$(buildkite-agent meta-data get "mergify-ci.scopes")
+    # echo "$SCOPES" | jq -e '.backend == "true"'
+
+  - label: "Frontend tests"
+    depends_on: scopes
+    command: npm test
+    plugins:
+      - mergifyio/mergify-ci#v1:
+          action: junit-process
+          report_path: "reports/*.xml"
+          token: "${MERGIFY_CI_TOKEN}"
+    # SCOPES=$(buildkite-agent meta-data get "mergify-ci.scopes")
+    # echo "$SCOPES" | jq -e '.frontend == "true"'
+```
+
+For full conditional control, use a [dynamic pipeline](https://buildkite.com/docs/pipelines/defining-steps#dynamic-pipelines) that reads the scopes meta-data and only uploads the relevant steps:
+
+```bash
+#!/bin/bash
+# .buildkite/dynamic-pipeline.sh
+SCOPES=$(buildkite-agent meta-data get "mergify-ci.scopes")
+
+if echo "$SCOPES" | jq -e '.backend == "true"' > /dev/null 2>&1; then
+  cat <<'YAML'
+  - label: "Backend tests"
+    command: pytest tests/backend/
+    plugins:
+      - mergifyio/mergify-ci#v1:
+          action: junit-process
+          report_path: "reports/*.xml"
+          token: "${MERGIFY_CI_TOKEN}"
+YAML
+fi
+
+if echo "$SCOPES" | jq -e '.frontend == "true"' > /dev/null 2>&1; then
+  cat <<'YAML'
+  - label: "Frontend tests"
+    command: npm test
+    plugins:
+      - mergifyio/mergify-ci#v1:
+          action: junit-process
+          report_path: "reports/*.xml"
+          token: "${MERGIFY_CI_TOKEN}"
+YAML
+fi
+```
+
+```yaml
+# pipeline.yml
+steps:
+  - label: "Detect scopes"
+    key: scopes
+    plugins:
+      - mergifyio/mergify-ci#v1:
+          action: scopes
+          token: "${MERGIFY_CI_TOKEN}"
+
+  - label: "Upload pipeline"
+    depends_on: scopes
+    command: .buildkite/dynamic-pipeline.sh | buildkite-agent pipeline upload
+```
+
 ## Configuration
 
 | Property | Required | Default | Description |
