@@ -1,0 +1,36 @@
+#!/bin/bash
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/shared.sh
+source "${DIR}/../lib/shared.sh"
+
+ACTION="$(plugin_config_required ACTION)"
+
+case "$ACTION" in
+  scopes)
+    # shellcheck source=lib/scopes.sh
+    source "${DIR}/../lib/scopes.sh"
+    run_scopes
+    ;;
+  scopes-git-refs)
+    # shellcheck source=lib/scopes.sh
+    source "${DIR}/../lib/scopes.sh"
+    run_scopes_git_refs
+    ;;
+  scopes-upload)
+    # shellcheck source=lib/scopes.sh
+    source "${DIR}/../lib/scopes.sh"
+    run_scopes_upload
+    ;;
+  junit-process)
+    # Fall through: execute the user's original command.
+    # The plugin's post-command hook will handle JUnit processing.
+    bash -c "$BUILDKITE_COMMAND"
+    ;;
+  *)
+    log_error "Unsupported action: $ACTION"
+    echo "Valid actions are: junit-process, scopes, scopes-git-refs, scopes-upload"
+    exit 1
+    ;;
+esac
