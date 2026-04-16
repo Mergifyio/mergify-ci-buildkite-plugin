@@ -6,13 +6,11 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${DIR}/shared.sh"
 
 # Capture mergify-cli outputs via the GITHUB_OUTPUT mechanism.
-# Sets GITHUB_OUTPUT to a temp file, runs the command, then parses key=value pairs.
-# Returns the path to the output file.
+# Creates a temp file and prints its path. The caller must export GITHUB_OUTPUT
+# to that path before invoking mergify, since this function runs in a subshell
+# when called via $() and cannot export into the parent shell.
 setup_output_capture() {
-  local outfile
-  outfile="$(mktemp)"
-  export GITHUB_OUTPUT="$outfile"
-  echo "$outfile"
+  mktemp
 }
 
 # Parse a simple key=value from the captured output file.
@@ -33,6 +31,7 @@ run_scopes_git_refs() {
 
   local outfile
   outfile="$(setup_output_capture)"
+  export GITHUB_OUTPUT="$outfile"
 
   mergify ci git-refs
 
@@ -65,6 +64,7 @@ run_scopes() {
   local scopes_file="/tmp/mergify-scopes.json"
   local outfile
   outfile="$(setup_output_capture)"
+  export GITHUB_OUTPUT="$outfile"
 
   mergify ci scopes --write "$scopes_file"
 

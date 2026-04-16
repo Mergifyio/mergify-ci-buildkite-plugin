@@ -41,8 +41,8 @@ elif [[ "$1" == "meta-data" && "$2" == "get" ]]; then
   cat "${METADATA_DIR}/$3" 2>/dev/null
 fi
 STUB
-  sed -i '' "s|__METADATA_DIR__|${metadata_dir}|g" "${stub_dir}/buildkite-agent"
-  sed -i '' "s|__LOG__|${log}|g" "${stub_dir}/buildkite-agent"
+  sed -i "s|__METADATA_DIR__|${metadata_dir}|g" "${stub_dir}/buildkite-agent"
+  sed -i "s|__LOG__|${log}|g" "${stub_dir}/buildkite-agent"
   chmod +x "${stub_dir}/buildkite-agent"
   export PATH="${stub_dir}:${PATH}"
 }
