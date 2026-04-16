@@ -1,0 +1,31 @@
+name: Mergify CI
+description: Mergify CI integration for Buildkite — JUnit processing, scope detection, and scope upload
+author: https://github.com/mergify
+requirements:
+  - curl
+  - bash
+  - jq
+configuration:
+  properties:
+    action:
+      type: string
+      enum:
+        - junit-process
+        - scopes
+        - scopes-git-refs
+        - scopes-upload
+    token:
+      type: string
+    report_path:
+      type: string
+    scopes:
+      type: string
+    mergify_api_url:
+      type: string
+    job_name:
+      type: string
+    mergify_config_path:
+      type: string
+  required:
+    - action
+  additionalProperties: false
