@@ -8,9 +8,9 @@ setup() {
 
 @test "junit-process: uploads report with correct env vars" {
   stub_mergify_junit 0
-  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
-  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
-  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+  export BUILDKITE_PLUGIN_MERGIFY_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_REPORT_PATH="reports/*.xml"
+  export BUILDKITE_PLUGIN_MERGIFY_TOKEN="test-token"
 
   run bash hooks/post-command
 
@@ -27,9 +27,9 @@ setup() {
 @test "junit-process: maps non-zero exit status to exit code 1" {
   stub_mergify_junit 0
   export BUILDKITE_COMMAND_EXIT_STATUS="2"
-  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
-  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
-  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+  export BUILDKITE_PLUGIN_MERGIFY_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_REPORT_PATH="reports/*.xml"
+  export BUILDKITE_PLUGIN_MERGIFY_TOKEN="test-token"
 
   run bash hooks/post-command
 
@@ -39,10 +39,10 @@ setup() {
 
 @test "junit-process: uses custom job_name when provided" {
   stub_mergify_junit 0
-  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
-  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
-  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
-  export BUILDKITE_PLUGIN_MERGIFY_CI_JOB_NAME="custom-name"
+  export BUILDKITE_PLUGIN_MERGIFY_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_REPORT_PATH="reports/*.xml"
+  export BUILDKITE_PLUGIN_MERGIFY_TOKEN="test-token"
+  export BUILDKITE_PLUGIN_MERGIFY_JOB_NAME="custom-name"
 
   run bash hooks/post-command
 
@@ -52,9 +52,9 @@ setup() {
 
 @test "junit-process: does not fail build when upload fails" {
   stub_mergify_junit 1
-  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
-  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
-  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+  export BUILDKITE_PLUGIN_MERGIFY_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_REPORT_PATH="reports/*.xml"
+  export BUILDKITE_PLUGIN_MERGIFY_TOKEN="test-token"
 
   run bash hooks/post-command
 
@@ -63,8 +63,8 @@ setup() {
 
 @test "junit-process: fails when report_path is missing" {
   stub_mergify_junit 0
-  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
-  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+  export BUILDKITE_PLUGIN_MERGIFY_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_TOKEN="test-token"
 
   run bash hooks/post-command
 
@@ -72,7 +72,7 @@ setup() {
 }
 
 @test "post-command: no-op for scopes action" {
-  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
+  export BUILDKITE_PLUGIN_MERGIFY_ACTION="scopes"
 
   run bash hooks/post-command
 
