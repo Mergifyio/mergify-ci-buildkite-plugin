@@ -39,6 +39,8 @@ if [[ "$1" == "meta-data" && "$2" == "set" ]]; then
   echo "$4" > "${METADATA_DIR}/$3"
 elif [[ "$1" == "meta-data" && "$2" == "get" ]]; then
   cat "${METADATA_DIR}/$3" 2>/dev/null
+elif [[ "$1" == "annotate" ]]; then
+  echo "$2" > "${METADATA_DIR}/annotation"
 fi
 STUB
   sed -i "s|__METADATA_DIR__|${metadata_dir}|g" "${stub_dir}/buildkite-agent"

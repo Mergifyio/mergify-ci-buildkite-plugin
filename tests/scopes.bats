@@ -29,6 +29,19 @@ setup() {
   [ "$(cat "${BATS_TEST_TMPDIR}/metadata/mergify-ci.scopes")" = '{"backend": "true", "frontend": "false"}' ]
 }
 
+@test "scopes: annotates build with detected scopes" {
+  stub_mergify_scopes "abc123" "def456" '{"backend": "true", "frontend": "false"}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  local annotation
+  annotation="$(cat "${BATS_TEST_TMPDIR}/metadata/annotation")"
+  [[ "$annotation" == *":white_check_mark: backend"* ]]
+  [[ "$annotation" == *":no_entry_sign: frontend"* ]]
+}
+
 @test "scopes: uploads when token is set" {
   stub_mergify_scopes "abc123" "def456" '{"backend": "true"}'
   export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"

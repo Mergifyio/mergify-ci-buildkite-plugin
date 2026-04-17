@@ -88,6 +88,21 @@ run_scopes() {
   fi
   if [[ -n "$scopes_json" ]]; then
     buildkite-agent meta-data set "mergify-ci.scopes" "$scopes_json"
+
+    # Annotate the build with detected scopes
+    local annotation
+    annotation="<details><summary>:mergify: Mergify CI — Detected scopes</summary><ul>"
+    local scope enabled
+    while IFS= read -r scope; do
+      enabled=$(echo "$scopes_json" | jq -r --arg s "$scope" '.[$s]')
+      if [[ "$enabled" == "true" ]]; then
+        annotation+="<li>:white_check_mark: ${scope}</li>"
+      else
+        annotation+="<li>:no_entry_sign: ${scope}</li>"
+      fi
+    done < <(echo "$scopes_json" | jq -r 'keys[]')
+    annotation+="</ul></details>"
+    buildkite-agent annotate "$annotation" --style "info" --context "mergify-ci-scopes"
   fi
 
   # Upload to Mergify API only in pull request context
