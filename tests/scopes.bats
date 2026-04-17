@@ -3,6 +3,7 @@
 setup() {
   load helpers/stub
   stub_buildkite_agent
+  export BUILDKITE_PULL_REQUEST="42"
 }
 
 @test "scopes-git-refs: stores base and head in meta-data" {

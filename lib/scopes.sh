@@ -90,20 +90,29 @@ run_scopes() {
     buildkite-agent meta-data set "mergify-ci.scopes" "$scopes_json"
   fi
 
-  # Upload to Mergify API if token is set
-  local token
-  token="$(plugin_config TOKEN "")"
-  if [[ -n "$token" ]]; then
-    export MERGIFY_TOKEN="$token"
-    export MERGIFY_API_URL
-    MERGIFY_API_URL="$(plugin_config MERGIFY_API_URL "https://api.mergify.com")"
-    mergify ci scopes-send --file "$scopes_file"
+  # Upload to Mergify API only in pull request context
+  if [[ "${BUILDKITE_PULL_REQUEST:-false}" == "false" ]]; then
+    log_info "Not a pull request build, skipping scopes upload to Mergify API."
   else
-    log_warning "Mergify token is not set, scopes will not be sent to Mergify API"
+    local token
+    token="$(plugin_config TOKEN "")"
+    if [[ -n "$token" ]]; then
+      export MERGIFY_TOKEN="$token"
+      export MERGIFY_API_URL
+      MERGIFY_API_URL="$(plugin_config MERGIFY_API_URL "https://api.mergify.com")"
+      mergify ci scopes-send --file "$scopes_file"
+    else
+      log_warning "Mergify token is not set, scopes will not be sent to Mergify API"
+    fi
   fi
 }
 
 run_scopes_upload() {
+  if [[ "${BUILDKITE_PULL_REQUEST:-false}" == "false" ]]; then
+    log_info "Not a pull request build, skipping scopes upload."
+    return 0
+  fi
+
   log_info "Uploading scopes..."
 
   local config_path
