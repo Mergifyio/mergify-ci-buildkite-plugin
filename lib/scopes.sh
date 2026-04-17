@@ -162,6 +162,16 @@ run_scopes_upload() {
     scopes_json=$(echo "$scopes_raw" | jq -R -s 'rtrimstr("\n") | split(",")')
   fi
 
+  # Annotate the build with scopes
+  local annotation
+  annotation="<details><summary>:mergify: Mergify CI — Detected scopes</summary><ul>"
+  local scope
+  while IFS= read -r scope; do
+    annotation+="<li>:white_check_mark: ${scope}</li>"
+  done < <(echo "$scopes_json" | jq -r '.[]')
+  annotation+="</ul></details>"
+  buildkite-agent annotate "$annotation" --style "info" --context "mergify-ci-scopes"
+
   # Build scopes file
   local scopes_file="/tmp/mergify-scopes.json"
   jq -n \
