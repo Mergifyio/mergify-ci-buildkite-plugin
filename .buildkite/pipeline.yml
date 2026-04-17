@@ -12,7 +12,7 @@ steps:
       - mergifyio/mergify-ci#${BUILDKITE_COMMIT}:
           action: junit-process
           report_path: "zfixtures/junit_example.xml"
-          token: "${MERGIFY_CI_TOKEN}"
+          token: "${MERGIFY_TOKEN}"
           mergify_api_url: "http://localhost:1080"
 
   - label: ":mag: Test scopes-git-refs"
@@ -27,12 +27,12 @@ steps:
       - mergifyio/mergify-ci#${BUILDKITE_COMMIT}:
           action: scopes-upload
           scopes: "backend,frontend"
-          token: "${MERGIFY_CI_TOKEN}"
+          token: "${MERGIFY_TOKEN}"
           mergify_api_url: "http://localhost:1080"
 
   - label: ":mag: Test scopes"
     plugins:
       - mergifyio/mergify-ci#${BUILDKITE_COMMIT}:
           action: scopes
-          token: "${MERGIFY_CI_TOKEN}"
+          token: "${MERGIFY_TOKEN}"
           mergify_api_url: "http://localhost:1080"

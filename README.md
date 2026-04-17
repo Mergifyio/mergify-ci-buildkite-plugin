@@ -16,7 +16,7 @@ steps:
       - mergifyio/mergify-ci#v1:
           action: junit-process
           report_path: "reports/*.xml"
-          token: "${MERGIFY_CI_TOKEN}"
+          token: "${MERGIFY_TOKEN}"
 ```
 
 ### `scopes`
@@ -29,7 +29,7 @@ steps:
     plugins:
       - mergifyio/mergify-ci#v1:
           action: scopes
-          token: "${MERGIFY_CI_TOKEN}"
+          token: "${MERGIFY_TOKEN}"
 ```
 
 ### `scopes-git-refs`
@@ -62,7 +62,7 @@ steps:
     plugins:
       - mergifyio/mergify-ci#v1:
           action: scopes-upload
-          token: "${MERGIFY_CI_TOKEN}"
+          token: "${MERGIFY_TOKEN}"
           scopes: "backend,frontend"
 ```
 
@@ -77,7 +77,7 @@ steps:
     plugins:
       - mergifyio/mergify-ci#v1:
           action: scopes
-          token: "${MERGIFY_CI_TOKEN}"
+          token: "${MERGIFY_TOKEN}"
 
   - label: "Backend tests"
     depends_on: scopes
@@ -87,7 +87,7 @@ steps:
       - mergifyio/mergify-ci#v1:
           action: junit-process
           report_path: "reports/*.xml"
-          token: "${MERGIFY_CI_TOKEN}"
+          token: "${MERGIFY_TOKEN}"
     # Use a dynamic pipeline or script to check scopes:
     # SCOPES=$(buildkite-agent meta-data get "mergify-ci.scopes")
     # echo "$SCOPES" | jq -e '.backend == "true"'
@@ -99,7 +99,7 @@ steps:
       - mergifyio/mergify-ci#v1:
           action: junit-process
           report_path: "reports/*.xml"
-          token: "${MERGIFY_CI_TOKEN}"
+          token: "${MERGIFY_TOKEN}"
     # SCOPES=$(buildkite-agent meta-data get "mergify-ci.scopes")
     # echo "$SCOPES" | jq -e '.frontend == "true"'
 ```
@@ -119,7 +119,7 @@ if echo "$SCOPES" | jq -e '.backend == "true"' > /dev/null 2>&1; then
       - mergifyio/mergify-ci#v1:
           action: junit-process
           report_path: "reports/*.xml"
-          token: "${MERGIFY_CI_TOKEN}"
+          token: "${MERGIFY_TOKEN}"
 YAML
 fi
 
@@ -131,7 +131,7 @@ if echo "$SCOPES" | jq -e '.frontend == "true"' > /dev/null 2>&1; then
       - mergifyio/mergify-ci#v1:
           action: junit-process
           report_path: "reports/*.xml"
-          token: "${MERGIFY_CI_TOKEN}"
+          token: "${MERGIFY_TOKEN}"
 YAML
 fi
 ```
@@ -144,7 +144,7 @@ steps:
     plugins:
       - mergifyio/mergify-ci#v1:
           action: scopes
-          token: "${MERGIFY_CI_TOKEN}"
+          token: "${MERGIFY_TOKEN}"
 
   - label: "Upload pipeline"
     depends_on: scopes
