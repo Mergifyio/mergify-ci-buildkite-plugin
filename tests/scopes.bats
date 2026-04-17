@@ -63,8 +63,7 @@ setup() {
   [[ "$output" == *"Mergify token is not set"* ]]
 }
 
-@test "scopes-upload: reads meta-data and uploads" {
-  # Pre-set meta-data as if scopes-git-refs ran first
+@test "scopes-upload: reads CSV scopes from plugin config" {
   mkdir -p "${BATS_TEST_TMPDIR}/metadata"
   echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
   echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
@@ -79,18 +78,36 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "scopes-upload: fails when scopes config is missing" {
+@test "scopes-upload: reads JSON scopes from meta-data" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+  echo '{"backend": "true", "frontend": "false"}' > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.scopes"
+
+  stub_mergify_scopes "abc123" "def456" '{}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  # Verify only "true" scopes are included
+  [[ "$output" == *'"backend"'* ]]
+}
+
+@test "scopes-upload: fails when no scopes in config or meta-data" {
   mkdir -p "${BATS_TEST_TMPDIR}/metadata"
   echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
   echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
 
-  stub_buildkite_agent
+  stub_mergify_scopes "abc123" "def456" '{}'
   export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
   export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
 
   run bash hooks/command
 
   [ "$status" -ne 0 ]
+  [[ "$output" == *"No scopes found"* ]]
 }
 
 @test "command: falls through to user command for junit-process" {

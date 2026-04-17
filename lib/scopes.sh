@@ -141,13 +141,26 @@ run_scopes_upload() {
   base="$(buildkite-agent meta-data get "mergify-ci.base")"
   head="$(buildkite-agent meta-data get "mergify-ci.head")"
 
-  # Read scopes from config
-  local scopes_csv
-  scopes_csv="$(plugin_config_required SCOPES)"
+  # Read scopes from plugin config or meta-data
+  local scopes_raw scopes_json
+  scopes_raw="$(plugin_config SCOPES "")"
+  if [[ -z "$scopes_raw" ]]; then
+    scopes_raw="$(buildkite-agent meta-data get "mergify-ci.scopes" 2>/dev/null || true)"
+  fi
 
-  # Convert comma-separated scopes to JSON array
-  local scopes_json
-  scopes_json=$(echo "$scopes_csv" | jq -R -s 'rtrimstr("\n") | split(",")')
+  if [[ -z "$scopes_raw" ]]; then
+    log_error "No scopes found: set 'scopes' in plugin config or run a 'scopes' step first"
+    exit 1
+  fi
+
+  # Support both JSON ({"backend":"true",...}) and CSV (backend,frontend) formats
+  if echo "$scopes_raw" | jq -e 'type == "object"' >/dev/null 2>&1; then
+    # JSON object: extract keys where value is "true"
+    scopes_json=$(echo "$scopes_raw" | jq '[to_entries[] | select(.value == "true") | .key]')
+  else
+    # CSV: split into JSON array
+    scopes_json=$(echo "$scopes_raw" | jq -R -s 'rtrimstr("\n") | split(",")')
+  fi
 
   # Build scopes file
   local scopes_file="/tmp/mergify-scopes.json"

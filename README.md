@@ -21,7 +21,7 @@ steps:
 
 ### `scopes`
 
-Detect which code scopes are affected by a pull request and upload them to the Mergify API.
+Detect which code scopes are affected by a pull request and upload them to the Mergify API. A Buildkite annotation is created to display the detected scopes directly on the build page.
 
 ```yaml
 steps:
@@ -47,9 +47,10 @@ steps:
 
 ### `scopes-upload`
 
-Upload pre-computed scopes to the Mergify API. Requires a prior `scopes-git-refs` step.
+Upload scopes to the Mergify API. Requires a prior `scopes-git-refs` step for base/head refs. Scopes can be provided as a comma-separated list in plugin config, or read automatically from the `mergify-ci.scopes` meta-data set by a prior `scopes` step (both JSON and CSV formats are supported).
 
 ```yaml
+# Option 1: explicit scopes via plugin config
 steps:
   - label: "Get git refs"
     key: git-refs
@@ -64,6 +65,29 @@ steps:
           action: scopes-upload
           token: "${MERGIFY_TOKEN}"
           scopes: "backend,frontend"
+```
+
+```yaml
+# Option 2: scopes from meta-data (set by a prior step)
+steps:
+  - label: "Get git refs"
+    key: git-refs
+    plugins:
+      - mergifyio/mergify-ci#v1:
+          action: scopes-git-refs
+
+  - label: "Detect scopes"
+    key: detect-scopes
+    depends_on: git-refs
+    command: |
+      buildkite-agent meta-data set "mergify-ci.scopes" '{"backend": "true", "frontend": "false"}'
+
+  - label: "Upload scopes"
+    depends_on: detect-scopes
+    plugins:
+      - mergifyio/mergify-ci#v1:
+          action: scopes-upload
+          token: "${MERGIFY_TOKEN}"
 ```
 
 ### Using scopes to conditionally run steps
@@ -158,7 +182,7 @@ steps:
 | `action` | yes | — | `junit-process`, `scopes`, `scopes-git-refs`, or `scopes-upload` |
 | `token` | for API calls | — | Mergify CI authentication token |
 | `report_path` | for junit-process | — | Glob path to JUnit XML files |
-| `scopes` | for scopes-upload | — | Comma-separated list of scopes |
+| `scopes` | no | — | Comma-separated list of scopes. If not set, `scopes-upload` reads from `mergify-ci.scopes` meta-data |
 | `mergify_api_url` | no | `https://api.mergify.com` | Mergify API endpoint |
 | `job_name` | no | Step label | Override job name (useful for matrix builds) |
 | `mergify_config_path` | no | — | Path to `.mergify.yml` configuration file |
@@ -173,6 +197,10 @@ The plugin stores the following values via `buildkite-agent meta-data`:
 | `mergify-ci.base` | `scopes`, `scopes-git-refs` | Merge-queue-aware base SHA |
 | `mergify-ci.head` | `scopes`, `scopes-git-refs` | Merge-queue-aware head SHA |
 | `mergify-ci.scopes` | `scopes` | JSON mapping of scope names to "true"/"false" |
+
+## Annotations
+
+The `scopes` action creates a Buildkite annotation (context: `mergify-ci-scopes`) showing which scopes were detected, with check marks for affected scopes.
 
 ## Requirements
 
