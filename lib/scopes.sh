@@ -95,7 +95,7 @@ run_scopes() {
     log_info "Not a pull request build, skipping scopes upload to Mergify API."
   else
     local token
-    token="$(plugin_config TOKEN "")"
+    token="$(resolve_token)"
     if [[ -n "$token" ]]; then
       export MERGIFY_TOKEN="$token"
       export MERGIFY_API_URL

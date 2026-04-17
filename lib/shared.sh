@@ -31,3 +31,10 @@ log_warning() {
 log_error() {
   echo "~~~ :x: $*" >&2
 }
+
+# Resolve the Mergify token from plugin config or environment.
+resolve_token() {
+  local token
+  token="$(plugin_config TOKEN "${MERGIFY_TOKEN:-}")"
+  echo "$token"
+}

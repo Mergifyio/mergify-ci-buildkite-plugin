@@ -16,7 +16,7 @@ run_junit_process() {
   MERGIFY_API_URL="$(plugin_config MERGIFY_API_URL "https://api.mergify.com")"
 
   local token
-  token="$(plugin_config TOKEN "")"
+  token="$(resolve_token)"
   if [[ -n "$token" ]]; then
     export MERGIFY_TOKEN="$token"
   fi
