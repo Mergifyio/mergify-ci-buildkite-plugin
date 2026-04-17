@@ -70,20 +70,13 @@ steps:
 ```yaml
 # Option 2: scopes from meta-data (set by a prior step)
 steps:
-  - label: "Get git refs"
-    key: git-refs
-    plugins:
-      - mergifyio/mergify-ci#v1:
-          action: scopes-git-refs
-
-  - label: "Detect scopes"
-    key: detect-scopes
-    depends_on: git-refs
+  - label: "Generate scopes"
+    key: generate-scopes
     command: |
-      buildkite-agent meta-data set "mergify-ci.scopes" '{"backend": "true", "frontend": "false"}'
+      buildkite-agent meta-data set "mergify-ci.scopes" "backend,frontend"
 
   - label: "Upload scopes"
-    depends_on: detect-scopes
+    depends_on: generate-scopes
     plugins:
       - mergifyio/mergify-ci#v1:
           action: scopes-upload
