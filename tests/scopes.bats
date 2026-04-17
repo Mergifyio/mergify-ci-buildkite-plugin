@@ -38,8 +38,9 @@ setup() {
   [ "$status" -eq 0 ]
   local annotation
   annotation="$(cat "${BATS_TEST_TMPDIR}/metadata/annotation")"
-  [[ "$annotation" == *":white_check_mark: backend"* ]]
-  [[ "$annotation" == *":no_entry_sign: frontend"* ]]
+  [[ "$annotation" == *"abc123...def456"* ]]
+  [[ "$annotation" == *"<code>backend</code></td><td>:white_check_mark:</td>"* ]]
+  [[ "$annotation" == *"<code>frontend</code></td><td>:x:</td>"* ]]
 }
 
 @test "scopes: uploads when token is set" {

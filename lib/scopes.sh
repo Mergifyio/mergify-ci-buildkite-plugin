@@ -90,18 +90,22 @@ run_scopes() {
     buildkite-agent meta-data set "mergify-ci.scopes" "$scopes_json"
 
     # Annotate the build with detected scopes
+    local short_base short_head
+    short_base="${base:0:7}"
+    short_head="${head:0:7}"
     local annotation
-    annotation="<details><summary>:mergify: Mergify CI — Detected scopes</summary><ul>"
+    annotation="<h3>:mergify: Mergify CI Scope Matching Results for <code>${short_base}...${short_head}</code></h3>"
+    annotation+="<table><tr><th>:dart: Scope</th><th>:white_check_mark: Match</th></tr>"
     local scope enabled
     while IFS= read -r scope; do
       enabled=$(echo "$scopes_json" | jq -r --arg s "$scope" '.[$s]')
       if [[ "$enabled" == "true" ]]; then
-        annotation+="<li>:white_check_mark: ${scope}</li>"
+        annotation+="<tr><td><code>${scope}</code></td><td>:white_check_mark:</td></tr>"
       else
-        annotation+="<li>:no_entry_sign: ${scope}</li>"
+        annotation+="<tr><td><code>${scope}</code></td><td>:x:</td></tr>"
       fi
     done < <(echo "$scopes_json" | jq -r 'keys[]')
-    annotation+="</ul></details>"
+    annotation+="</table>"
     buildkite-agent annotate "$annotation" --style "info" --context "mergify-ci-scopes"
   fi
 
@@ -163,13 +167,17 @@ run_scopes_upload() {
   fi
 
   # Annotate the build with scopes
+  local short_base short_head
+  short_base="${base:0:7}"
+  short_head="${head:0:7}"
   local annotation
-  annotation="<details><summary>:mergify: Mergify CI — Detected scopes</summary><ul>"
+  annotation="<h3>:mergify: Mergify CI Scope Matching Results for <code>${short_base}...${short_head}</code></h3>"
+  annotation+="<table><tr><th>:dart: Scope</th><th>:white_check_mark: Match</th></tr>"
   local scope
   while IFS= read -r scope; do
-    annotation+="<li>:white_check_mark: ${scope}</li>"
+    annotation+="<tr><td><code>${scope}</code></td><td>:white_check_mark:</td></tr>"
   done < <(echo "$scopes_json" | jq -r '.[]')
-  annotation+="</ul></details>"
+  annotation+="</table>"
   buildkite-agent annotate "$annotation" --style "info" --context "mergify-ci-scopes"
 
   # Build scopes file
