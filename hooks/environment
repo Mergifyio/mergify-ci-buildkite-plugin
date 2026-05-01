@@ -14,12 +14,14 @@ if ! command -v uv &>/dev/null; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
-# Install mergify-cli
+# Install (or upgrade) mergify-cli. --force --upgrade ensures we always
+# fetch the latest release, even when the tool is already cached on the
+# agent from a previous build.
 PYTHON_VERSION="$(plugin_config PYTHON_VERSION "3.13")"
 if [[ "$PYTHON_VERSION" == "system" ]]; then
-  uv tool install mergify-cli
+  uv tool install --force --upgrade mergify-cli
 else
-  uv tool install --python "$PYTHON_VERSION" mergify-cli
+  uv tool install --force --upgrade --python "$PYTHON_VERSION" mergify-cli
 fi
 
 # Verify installation
