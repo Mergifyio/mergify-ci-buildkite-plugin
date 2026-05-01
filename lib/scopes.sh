@@ -5,22 +5,6 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/shared.sh
 source "${DIR}/shared.sh"
 
-# Capture mergify-cli outputs via the GITHUB_OUTPUT mechanism.
-# Creates a temp file and prints its path. The caller must export GITHUB_OUTPUT
-# to that path before invoking mergify, since this function runs in a subshell
-# when called via $() and cannot export into the parent shell.
-setup_output_capture() {
-  mktemp
-}
-
-# Parse a simple key=value from the captured output file.
-# Returns empty string if the key is not found.
-parse_output() {
-  local file="$1"
-  local key="$2"
-  grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2- || true
-}
-
 run_scopes_git_refs() {
   log_info "Detecting git refs..."
 
@@ -30,27 +14,7 @@ run_scopes_git_refs() {
     export MERGIFY_CONFIG_PATH="$config_path"
   fi
 
-  local outfile
-  outfile="$(setup_output_capture)"
-  export GITHUB_OUTPUT="$outfile"
-
   mergify ci git-refs
-
-  local base head
-  base="$(parse_output "$outfile" "base")"
-  head="$(parse_output "$outfile" "head")"
-  rm -f "$outfile"
-
-  if [[ -z "$base" || -z "$head" ]]; then
-    log_error "Failed to detect git refs"
-    exit 1
-  fi
-
-  echo "Base: $base"
-  echo "Head: $head"
-
-  buildkite-agent meta-data set "mergify-ci.base" "$base"
-  buildkite-agent meta-data set "mergify-ci.head" "$head"
 }
 
 run_scopes() {
@@ -63,67 +27,25 @@ run_scopes() {
   fi
 
   local scopes_file="/tmp/mergify-scopes.json"
-  local outfile
-  outfile="$(setup_output_capture)"
-  export GITHUB_OUTPUT="$outfile"
-
   mergify ci scopes --write "$scopes_file"
-
-  # Extract base/head from captured outputs
-  local base head
-  base="$(parse_output "$outfile" "base")"
-  head="$(parse_output "$outfile" "head")"
-
-  # Extract scopes — this is a multiline value delimited by ghadelimiter_<uuid>
-  # Format: scopes<<ghadelimiter_<uuid>\n<json>\nghadelimiter_<uuid>
-  local scopes_json
-  scopes_json="$(sed -n '/^scopes<</,/^ghadelimiter_/{/^scopes<</d;/^ghadelimiter_/d;p}' "$outfile")"
-  rm -f "$outfile"
-
-  if [[ -n "$base" ]]; then
-    buildkite-agent meta-data set "mergify-ci.base" "$base"
-  fi
-  if [[ -n "$head" ]]; then
-    buildkite-agent meta-data set "mergify-ci.head" "$head"
-  fi
-  if [[ -n "$scopes_json" ]]; then
-    buildkite-agent meta-data set "mergify-ci.scopes" "$scopes_json"
-
-    # Annotate the build with detected scopes
-    local short_base short_head
-    short_base="${base:0:7}"
-    short_head="${head:0:7}"
-    local annotation
-    annotation="<h3>:mergify: Mergify CI Scope Matching Results for <code>${short_base}...${short_head}</code></h3>"
-    annotation+="<table><tr><th>:dart: Scope</th><th>:white_check_mark: Match</th></tr>"
-    local scope enabled
-    while IFS= read -r scope; do
-      enabled=$(echo "$scopes_json" | jq -r --arg s "$scope" '.[$s]')
-      if [[ "$enabled" == "true" ]]; then
-        annotation+="<tr><td><code>${scope}</code></td><td>:white_check_mark:</td></tr>"
-      else
-        annotation+="<tr><td><code>${scope}</code></td><td>:x:</td></tr>"
-      fi
-    done < <(echo "$scopes_json" | jq -r 'keys[]')
-    annotation+="</table>"
-    buildkite-agent annotate "$annotation" --style "info" --context "mergify-ci-scopes"
-  fi
 
   # Upload to Mergify API only in pull request context
   if [[ "${BUILDKITE_PULL_REQUEST:-false}" == "false" ]]; then
     log_info "Not a pull request build, skipping scopes upload to Mergify API."
-  else
-    local token
-    token="$(resolve_token)"
-    if [[ -n "$token" ]]; then
-      export MERGIFY_TOKEN="$token"
-      export MERGIFY_API_URL
-      MERGIFY_API_URL="$(plugin_config MERGIFY_API_URL "https://api.mergify.com")"
-      mergify ci scopes-send --file "$scopes_file"
-    else
-      log_warning "Mergify token is not set, scopes will not be sent to Mergify API"
-    fi
+    return 0
   fi
+
+  local token
+  token="$(resolve_token)"
+  if [[ -z "$token" ]]; then
+    log_warning "Mergify token is not set, scopes will not be sent to Mergify API"
+    return 0
+  fi
+
+  export MERGIFY_TOKEN="$token"
+  export MERGIFY_API_URL
+  MERGIFY_API_URL="$(plugin_config MERGIFY_API_URL "https://api.mergify.com")"
+  mergify ci scopes-send --file "$scopes_file"
 }
 
 run_scopes_upload() {
@@ -165,20 +87,6 @@ run_scopes_upload() {
     # CSV: split into JSON array
     scopes_json=$(echo "$scopes_raw" | jq -R -s 'rtrimstr("\n") | split(",")')
   fi
-
-  # Annotate the build with scopes
-  local short_base short_head
-  short_base="${base:0:7}"
-  short_head="${head:0:7}"
-  local annotation
-  annotation="<h3>:mergify: Mergify CI Scope Matching Results for <code>${short_base}...${short_head}</code></h3>"
-  annotation+="<table><tr><th>:dart: Scope</th><th>:white_check_mark: Match</th></tr>"
-  local scope
-  while IFS= read -r scope; do
-    annotation+="<tr><td><code>${scope}</code></td><td>:white_check_mark:</td></tr>"
-  done < <(echo "$scopes_json" | jq -r '.[]')
-  annotation+="</table>"
-  buildkite-agent annotate "$annotation" --style "info" --context "mergify-ci-scopes"
 
   # Build scopes file
   local scopes_file="/tmp/mergify-scopes.json"

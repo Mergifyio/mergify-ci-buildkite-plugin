@@ -189,11 +189,12 @@ The plugin stores the following values via `buildkite-agent meta-data`:
 |-----|--------|-------------|
 | `mergify-ci.base` | `scopes`, `scopes-git-refs` | Merge-queue-aware base SHA |
 | `mergify-ci.head` | `scopes`, `scopes-git-refs` | Merge-queue-aware head SHA |
+| `mergify-ci.source` | `scopes`, `scopes-git-refs` | Reference source (e.g. `buildkite_pull_request`, `merge_queue`) |
 | `mergify-ci.scopes` | `scopes` | JSON mapping of scope names to "true"/"false" |
 
 ## Annotations
 
-The `scopes` action creates a Buildkite annotation (context: `mergify-ci-scopes`) showing which scopes were detected, with check marks for affected scopes.
+The `mergify-cli` writes Buildkite annotations (context: `mergify-ci-scopes`) showing the detected scopes as a table. Annotations are written at both build scope (visible on the build page) and job scope (visible on the job card).
 
 ## Requirements
 

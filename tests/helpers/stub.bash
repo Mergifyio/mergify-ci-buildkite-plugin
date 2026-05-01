@@ -49,7 +49,8 @@ STUB
   export PATH="${stub_dir}:${PATH}"
 }
 
-# Create a mergify stub that writes to GITHUB_OUTPUT like the real CLI.
+# Create a mergify stub that mimics the real CLI: when BUILDKITE=true,
+# the CLI writes base/head/source directly to buildkite meta-data.
 stub_mergify_git_refs() {
   local base="$1"
   local head="$2"
@@ -61,9 +62,10 @@ stub_mergify_git_refs() {
 if [[ "\$1" == "ci" && "\$2" == "git-refs" ]]; then
   echo "Base: ${base}"
   echo "Head: ${head}"
-  if [[ -n "\${GITHUB_OUTPUT:-}" ]]; then
-    echo "base=${base}" >> "\$GITHUB_OUTPUT"
-    echo "head=${head}" >> "\$GITHUB_OUTPUT"
+  if [[ "\${BUILDKITE:-}" == "true" ]]; then
+    buildkite-agent meta-data set "mergify-ci.base" "${base}"
+    buildkite-agent meta-data set "mergify-ci.head" "${head}"
+    buildkite-agent meta-data set "mergify-ci.source" "buildkite_pull_request"
   fi
   exit 0
 elif [[ "\$1" == "--version" ]]; then
@@ -77,7 +79,9 @@ STUB
   export PATH="${stub_dir}:${PATH}"
 }
 
-# Create a mergify stub for scopes action.
+# Create a mergify stub for scopes action. Mimics the real CLI which,
+# when BUILDKITE=true, writes base/head/source/scopes meta-data and a
+# Buildkite annotation directly.
 stub_mergify_scopes() {
   local base="$1"
   local head="$2"
@@ -99,13 +103,12 @@ if [[ "\$1" == "ci" && "\$2" == "scopes" ]]; then
   done
   echo "Base: ${base}"
   echo "Head: ${head}"
-  if [[ -n "\${GITHUB_OUTPUT:-}" ]]; then
-    echo "base=${base}" >> "\$GITHUB_OUTPUT"
-    echo "head=${head}" >> "\$GITHUB_OUTPUT"
-    local delimiter="ghadelimiter_test"
-    echo "scopes<<\${delimiter}" >> "\$GITHUB_OUTPUT"
-    echo '${scopes_json}' >> "\$GITHUB_OUTPUT"
-    echo "\${delimiter}" >> "\$GITHUB_OUTPUT"
+  if [[ "\${BUILDKITE:-}" == "true" ]]; then
+    buildkite-agent meta-data set "mergify-ci.base" "${base}"
+    buildkite-agent meta-data set "mergify-ci.head" "${head}"
+    buildkite-agent meta-data set "mergify-ci.source" "buildkite_pull_request"
+    buildkite-agent meta-data set "mergify-ci.scopes" '${scopes_json}'
+    buildkite-agent annotate "stub-annotation" --style "info" --context "mergify-ci-scopes"
   fi
   if [[ -n "\$WRITE_FILE" ]]; then
     echo '{"scopes": ["backend"]}' > "\$WRITE_FILE"

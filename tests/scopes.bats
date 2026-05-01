@@ -3,6 +3,7 @@
 setup() {
   load helpers/stub
   stub_buildkite_agent
+  export BUILDKITE="true"
   export BUILDKITE_PULL_REQUEST="42"
 }
 
@@ -27,20 +28,6 @@ setup() {
   [ "$(cat "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base")" = "abc123" ]
   [ "$(cat "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head")" = "def456" ]
   [ "$(cat "${BATS_TEST_TMPDIR}/metadata/mergify-ci.scopes")" = '{"backend": "true", "frontend": "false"}' ]
-}
-
-@test "scopes: annotates build with detected scopes" {
-  stub_mergify_scopes "abc123" "def456" '{"backend": "true", "frontend": "false"}'
-  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
-
-  run bash hooks/command
-
-  [ "$status" -eq 0 ]
-  local annotation
-  annotation="$(cat "${BATS_TEST_TMPDIR}/metadata/annotation")"
-  [[ "$annotation" == *"abc123...def456"* ]]
-  [[ "$annotation" == *"<code>backend</code></td><td>:white_check_mark:</td>"* ]]
-  [[ "$annotation" == *"<code>frontend</code></td><td>:x:</td>"* ]]
 }
 
 @test "scopes: uploads when token is set" {
