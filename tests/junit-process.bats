@@ -50,7 +50,7 @@ setup() {
   grep "MERGIFY_JOB_NAME=custom-name" "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
-@test "junit-process: does not fail build when upload fails" {
+@test "junit-process: fails the step when CLI exits non-zero" {
   stub_mergify_junit 1
   export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
   export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
@@ -58,7 +58,10 @@ setup() {
 
   run bash hooks/post-command
 
-  [ "$status" -eq 0 ]
+  # The plugin propagates the CLI exit code so quarantine failures fail the step.
+  [ "$status" -ne 0 ]
+  # No extra log on top of the CLI's own output.
+  [[ "$output" != *"Failed to upload"* ]]
 }
 
 @test "junit-process: fails when report_path is missing" {

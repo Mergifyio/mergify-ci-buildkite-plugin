@@ -37,9 +37,9 @@ run_junit_process() {
     fi
   fi
 
-  # Run junit-process — best effort, don't fail the build
+  # Run junit-process. The CLI's own output explains upload and
+  # quarantine status; propagate its exit code so the Buildkite step
+  # fails when quarantine evaluation says it should.
   # shellcheck disable=SC2086
-  if ! mergify ci junit-process ${report_path}; then
-    log_warning "Failed to upload JUnit report to Mergify CI. This does not affect your build."
-  fi
+  mergify ci junit-process ${report_path}
 }
