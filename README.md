@@ -13,7 +13,7 @@ steps:
   - label: "Run tests"
     command: pytest --junitxml=reports/junit.xml
     plugins:
-      - mergifyio/mergify-ci#v1:
+      - mergifyio/mergify-ci#v2:
           action: junit-process
           report_path: "reports/*.xml"
           token: "${MERGIFY_TOKEN}"
@@ -27,7 +27,7 @@ Detect which code scopes are affected by a pull request and upload them to the M
 steps:
   - label: "Detect scopes"
     plugins:
-      - mergifyio/mergify-ci#v1:
+      - mergifyio/mergify-ci#v2:
           action: scopes
           token: "${MERGIFY_TOKEN}"
 ```
@@ -41,7 +41,7 @@ steps:
   - label: "Get git refs"
     key: git-refs
     plugins:
-      - mergifyio/mergify-ci#v1:
+      - mergifyio/mergify-ci#v2:
           action: scopes-git-refs
 ```
 
@@ -55,13 +55,13 @@ steps:
   - label: "Get git refs"
     key: git-refs
     plugins:
-      - mergifyio/mergify-ci#v1:
+      - mergifyio/mergify-ci#v2:
           action: scopes-git-refs
 
   - label: "Upload scopes"
     depends_on: git-refs
     plugins:
-      - mergifyio/mergify-ci#v1:
+      - mergifyio/mergify-ci#v2:
           action: scopes-upload
           token: "${MERGIFY_TOKEN}"
           scopes: "backend,frontend"
@@ -78,7 +78,7 @@ steps:
   - label: "Upload scopes"
     depends_on: generate-scopes
     plugins:
-      - mergifyio/mergify-ci#v1:
+      - mergifyio/mergify-ci#v2:
           action: scopes-upload
           token: "${MERGIFY_TOKEN}"
 ```
@@ -92,7 +92,7 @@ steps:
   - label: "Detect scopes"
     key: scopes
     plugins:
-      - mergifyio/mergify-ci#v1:
+      - mergifyio/mergify-ci#v2:
           action: scopes
           token: "${MERGIFY_TOKEN}"
 
@@ -101,7 +101,7 @@ steps:
     command: pytest tests/backend/
     if: build.env("BUILDKITE_TRIGGERED_FROM_BUILD_PIPELINE_SLUG") != null || build.pull_request.id != null
     plugins:
-      - mergifyio/mergify-ci#v1:
+      - mergifyio/mergify-ci#v2:
           action: junit-process
           report_path: "reports/*.xml"
           token: "${MERGIFY_TOKEN}"
@@ -113,7 +113,7 @@ steps:
     depends_on: scopes
     command: npm test
     plugins:
-      - mergifyio/mergify-ci#v1:
+      - mergifyio/mergify-ci#v2:
           action: junit-process
           report_path: "reports/*.xml"
           token: "${MERGIFY_TOKEN}"
@@ -133,7 +133,7 @@ if echo "$SCOPES" | jq -e '.backend == "true"' > /dev/null 2>&1; then
   - label: "Backend tests"
     command: pytest tests/backend/
     plugins:
-      - mergifyio/mergify-ci#v1:
+      - mergifyio/mergify-ci#v2:
           action: junit-process
           report_path: "reports/*.xml"
           token: "${MERGIFY_TOKEN}"
@@ -145,7 +145,7 @@ if echo "$SCOPES" | jq -e '.frontend == "true"' > /dev/null 2>&1; then
   - label: "Frontend tests"
     command: npm test
     plugins:
-      - mergifyio/mergify-ci#v1:
+      - mergifyio/mergify-ci#v2:
           action: junit-process
           report_path: "reports/*.xml"
           token: "${MERGIFY_TOKEN}"
@@ -159,7 +159,7 @@ steps:
   - label: "Detect scopes"
     key: scopes
     plugins:
-      - mergifyio/mergify-ci#v1:
+      - mergifyio/mergify-ci#v2:
           action: scopes
           token: "${MERGIFY_TOKEN}"
 
