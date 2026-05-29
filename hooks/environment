@@ -14,14 +14,24 @@ if ! command -v uv &>/dev/null; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
-# Install (or upgrade) mergify-cli. --force --upgrade ensures we always
-# fetch the latest release, even when the tool is already cached on the
-# agent from a previous build.
+# Pin to a specific mergify-cli release when requested, otherwise install the
+# latest one. An empty value or "latest" both mean "use the latest release".
+CLI_VERSION="$(plugin_config MERGIFY_CLI_VERSION "")"
+if [[ -z "$CLI_VERSION" || "$CLI_VERSION" == "latest" ]]; then
+  CLI_PACKAGE="mergify-cli"
+else
+  CLI_PACKAGE="mergify-cli==$CLI_VERSION"
+fi
+
+# Install (or upgrade) mergify-cli. --force --upgrade ensures we always pick up
+# the requested release, even when a different version is already cached on the
+# agent from a previous build. With a pinned version the == constraint keeps the
+# resolution at that exact release.
 PYTHON_VERSION="$(plugin_config PYTHON_VERSION "3.13")"
 if [[ "$PYTHON_VERSION" == "system" ]]; then
-  uv tool install --force --upgrade mergify-cli
+  uv tool install --force --upgrade "$CLI_PACKAGE"
 else
-  uv tool install --force --upgrade --python "$PYTHON_VERSION" mergify-cli
+  uv tool install --force --upgrade --python "$PYTHON_VERSION" "$CLI_PACKAGE"
 fi
 
 # Verify installation
