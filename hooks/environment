@@ -14,10 +14,15 @@ if ! command -v uv &>/dev/null; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
-# Pin to a specific mergify-cli release when requested, otherwise install the
-# latest one. An empty value or "latest" both mean "use the latest release".
-CLI_VERSION="$(plugin_config MERGIFY_CLI_VERSION "")"
-if [[ -z "$CLI_VERSION" || "$CLI_VERSION" == "latest" ]]; then
+# Default mergify-cli release installed when the plugin config doesn't request a
+# specific one. Renovate keeps this pinned version current via PRs.
+# renovate: datasource=pypi depName=mergify-cli versioning=pep440
+DEFAULT_MERGIFY_CLI_VERSION="2026.5.29.2"
+
+# Resolve the requested release. An explicit "latest" installs the newest release
+# unpinned; anything else (including the default above) pins it with ==.
+CLI_VERSION="$(plugin_config MERGIFY_CLI_VERSION "$DEFAULT_MERGIFY_CLI_VERSION")"
+if [[ "$CLI_VERSION" == "latest" ]]; then
   CLI_PACKAGE="mergify-cli"
 else
   CLI_PACKAGE="mergify-cli==$CLI_VERSION"
