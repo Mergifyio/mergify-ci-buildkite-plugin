@@ -22,6 +22,31 @@ STUB
   export PATH="${stub_dir}:${PATH}"
 }
 
+# Stub `curl` for the environment hook. Records argv to curl.log, then prints a
+# fake install.sh on stdout. When the hook pipes it to `sh`, the script installs
+# a `mergify` stub into MERGIFY_INSTALL_DIR and echoes the MERGIFY_VERSION the
+# hook exported, so tests can assert both the install.sh URL and the version.
+stub_curl_install() {
+  local stub_dir="${BATS_TEST_TMPDIR}/stubs"
+  mkdir -p "$stub_dir"
+  # Fully-quoted heredoc: nothing expands at stub-creation time. The inner
+  # 'SCRIPT' heredoc keeps ${MERGIFY_*} literal on stdout so they expand only
+  # in the `sh` that consumes the piped installer.
+  cat > "${stub_dir}/curl" <<'STUB'
+#!/bin/bash
+echo "$@" >> "${BATS_TEST_TMPDIR}/curl.log"
+cat <<'SCRIPT'
+#!/bin/sh
+mkdir -p "${MERGIFY_INSTALL_DIR}"
+printf '#!/bin/bash\necho "mergify-cli 0.0.0-stub"\n' > "${MERGIFY_INSTALL_DIR}/mergify"
+chmod +x "${MERGIFY_INSTALL_DIR}/mergify"
+echo "installed MERGIFY_VERSION=${MERGIFY_VERSION}"
+SCRIPT
+STUB
+  chmod +x "${stub_dir}/curl"
+  export PATH="${stub_dir}:${PATH}"
+}
+
 # Create a buildkite-agent stub that handles meta-data set/get.
 # Meta-data is stored in files under BATS_TEST_TMPDIR/metadata/.
 stub_buildkite_agent() {

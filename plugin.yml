@@ -3,6 +3,7 @@ description: Mergify integration for Buildkite — JUnit processing, scope detec
 author: https://github.com/mergifyio
 requirements:
   - curl
+  - tar
   - bash
   - jq
 configuration:
@@ -27,8 +28,6 @@ configuration:
     mergify_config_path:
       type: string
     mergify_cli_version:
-      type: string
-    python_version:
       type: string
   required:
     - action

@@ -2,9 +2,10 @@
 
 setup() {
   load helpers/stub
-  # Stub uv (records its args) and mergify (so the post-install check passes).
-  stub_command uv 0
-  stub_command mergify 0 "mergify-cli 0.0.0-stub"
+  # Install into a throwaway dir so the hook never touches the real ~/.local/bin.
+  export MERGIFY_INSTALL_DIR="${BATS_TEST_TMPDIR}/bin"
+  # Stub curl so the hook downloads a fake install.sh instead of hitting GitHub.
+  stub_curl_install
 }
 
 @test "environment: installs the pinned default when version is unset" {
@@ -14,33 +15,41 @@ setup() {
   # Read the default straight from the hook so this stays green when Renovate
   # bumps DEFAULT_MERGIFY_CLI_VERSION.
   default="$(grep -oE 'DEFAULT_MERGIFY_CLI_VERSION="[^"]+"' hooks/environment | cut -d'"' -f2)"
-  grep -q -- "tool install --force --upgrade --python 3.13 mergify-cli==${default}$" "${BATS_TEST_TMPDIR}/uv.log"
+  grep -q -- "raw.githubusercontent.com/Mergifyio/mergify-cli/${default}/install.sh$" "${BATS_TEST_TMPDIR}/curl.log"
+  [[ "$output" == *"installed MERGIFY_VERSION=${default}"* ]]
 }
 
-@test "environment: installs latest when version is 'latest'" {
+@test "environment: installs latest from main when version is 'latest'" {
   export BUILDKITE_PLUGIN_MERGIFY_CI_MERGIFY_CLI_VERSION="latest"
 
   run bash hooks/environment
 
   [ "$status" -eq 0 ]
-  grep -q -- "tool install --force --upgrade --python 3.13 mergify-cli$" "${BATS_TEST_TMPDIR}/uv.log"
+  grep -q -- "raw.githubusercontent.com/Mergifyio/mergify-cli/main/install.sh$" "${BATS_TEST_TMPDIR}/curl.log"
+  [[ "$output" == *"installed MERGIFY_VERSION=latest"* ]]
 }
 
-@test "environment: pins the exact version when one is given" {
-  export BUILDKITE_PLUGIN_MERGIFY_CI_MERGIFY_CLI_VERSION="2026.5.5.4"
+@test "environment: pins install.sh and version to the requested release" {
+  export BUILDKITE_PLUGIN_MERGIFY_CI_MERGIFY_CLI_VERSION="2026.6.15.1"
 
   run bash hooks/environment
 
   [ "$status" -eq 0 ]
-  grep -q -- "tool install --force --upgrade --python 3.13 mergify-cli==2026.5.5.4$" "${BATS_TEST_TMPDIR}/uv.log"
+  grep -q -- "raw.githubusercontent.com/Mergifyio/mergify-cli/2026.6.15.1/install.sh$" "${BATS_TEST_TMPDIR}/curl.log"
+  [[ "$output" == *"installed MERGIFY_VERSION=2026.6.15.1"* ]]
 }
 
-@test "environment: omits --python when python_version is 'system'" {
-  export BUILDKITE_PLUGIN_MERGIFY_CI_PYTHON_VERSION="system"
-  export BUILDKITE_PLUGIN_MERGIFY_CI_MERGIFY_CLI_VERSION="2026.5.5.4"
+@test "environment: fails when the binary is not installed" {
+  # curl that downloads an installer doing nothing — no mergify binary appears.
+  cat > "${BATS_TEST_TMPDIR}/stubs/curl" <<'STUB'
+#!/bin/bash
+echo ':'
+STUB
+  chmod +x "${BATS_TEST_TMPDIR}/stubs/curl"
 
-  run bash hooks/environment
+  # Minimal PATH so a real mergify on the dev machine can't mask the failure.
+  PATH="${BATS_TEST_TMPDIR}/stubs:/usr/bin:/bin" run bash hooks/environment
 
-  [ "$status" -eq 0 ]
-  grep -q -- "tool install --force --upgrade mergify-cli==2026.5.5.4$" "${BATS_TEST_TMPDIR}/uv.log"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"mergify-cli installation failed"* ]]
 }

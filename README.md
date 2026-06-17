@@ -179,8 +179,7 @@ steps:
 | `mergify_api_url` | no | `https://api.mergify.com` | Mergify API endpoint |
 | `job_name` | no | Step label | Override job name (useful for matrix builds) |
 | `mergify_config_path` | no | — | Path to `.mergify.yml` configuration file |
-| `mergify_cli_version` | no | pinned default | Version of `mergify-cli` to install. Leave unset to use the plugin's pinned default (kept current by Renovate, see `hooks/environment`), pin an exact release (e.g. `2026.5.29.2`), or use `latest` to always install the newest released version. |
-| `python_version` | no | `3.13` | Python version for `mergify-cli`. Uses `uv` to download it if needed. Set to `system` to use the agent's system Python. |
+| `mergify_cli_version` | no | pinned default | Version of `mergify-cli` to install. Leave unset to use the plugin's pinned default (kept current by Renovate, see `hooks/environment`), pin an exact release (e.g. `2026.6.16.1`, must be `>= 2026.6.15.1`), or use `latest` to always install the newest released version. |
 
 ## Meta-data
 
@@ -199,8 +198,13 @@ The `mergify-cli` writes Buildkite annotations (context: `mergify-ci-scopes`) sh
 
 ## Requirements
 
-- Python 3.x on the Buildkite agent
-- `curl` (for installing `uv`)
+`mergify-cli` is installed as a prebuilt binary (no Python required), downloaded
+and checksum-verified by the upstream [`install.sh`](https://github.com/Mergifyio/mergify-cli/blob/main/install.sh).
+Supported platforms: Linux (x86_64, aarch64) and macOS (x86_64, aarch64).
+
+- `curl` (to download the installer and the binary)
+- `tar` (to extract the binary)
+- `sha256sum` or `shasum` (to verify the binary checksum)
 - `jq` (for JSON processing in `scopes-upload`)
 
 ## Development
