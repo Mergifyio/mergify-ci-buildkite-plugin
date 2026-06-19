@@ -1,0 +1,65 @@
+extends: .github
+
+# NOTE: no "Continuous Integration" merge protection here on purpose.
+# This repo's CI runs entirely on Buildkite (.buildkite/pipeline.yml) and
+# Buildkite posts no commit status / check-run to GitHub, so there is no
+# GitHub check to gate on (unlike mergify-cli, whose `ci-gate` is a GitHub
+# Actions job). Adding `check-success=...` here would block every PR forever.
+# Restoring a CI gate requires either enabling Buildkite's GitHub status
+# reporting or adding a GitHub Actions job that reports a check. Until then,
+# merges are gated on review requirements only.
+
+shared:
+  default_review_cond: &DefaultReviewCond
+    - "#approved-reviews-by>=2"
+    - author = dependabot[bot]
+    - author = renovate[bot]
+    - author = mergify-ci-bot
+
+queue_rules:
+  - name: dependencies
+    queue_conditions:
+      - base=main
+      - or:
+          - author = renovate[bot]
+          - author = dependabot[bot]
+    merge_method: fast-forward
+    batch_size: 7
+    batch_max_wait_time: 5min
+    commit_message_template:
+  - name: default
+    queue_conditions:
+      - base=main
+    commit_message_template: |
+      {{ title }} (#{{ number }})
+
+      {{ body }}
+    merge_method: squash
+
+pull_request_rules:
+  - name: request review
+    conditions:
+      - -author=dependabot[bot]
+      - -author=renovate[bot]
+      - -author=mergify-ci-bot
+      - -merged
+      - -closed
+      - "#approved-reviews-by=0"
+      - "#changes-requested-reviews-by=0"
+      - review-requested!=@devs
+    actions:
+      request_reviews:
+        teams:
+          - devs
+
+merge_protections:
+  - name: 👀 Review Requirements
+    if: []
+    success_conditions:
+      - or: *DefaultReviewCond
+
+merge_queue:
+  max_parallel_checks: 5
+
+merge_protections_settings:
+  auto_merge_conditions: true
