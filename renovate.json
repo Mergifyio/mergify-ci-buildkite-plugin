@@ -10,8 +10,8 @@
   "osvVulnerabilityAlerts": true,
   "packageRules": [
     {
-      "matchDatasources": ["pypi"],
-      "matchPackageNames": ["mergify-cli"],
+      "matchDatasources": ["github-releases"],
+      "matchPackageNames": ["Mergifyio/mergify-cli"],
       "minimumReleaseAge": "2 days"
     }
   ],

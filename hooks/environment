@@ -7,43 +7,36 @@ source "${DIR}/../lib/shared.sh"
 
 log_info "Installing mergify-cli..."
 
-# Install uv if not available
-if ! command -v uv &>/dev/null; then
-  echo "uv not found, installing..."
-  curl -LsSf https://astral.sh/uv/install.sh | sh
-  export PATH="$HOME/.local/bin:$PATH"
-fi
-
 # Default mergify-cli release installed when the plugin config doesn't request a
-# specific one. Renovate keeps this pinned version current via PRs.
-# renovate: datasource=pypi depName=mergify-cli versioning=pep440
-DEFAULT_MERGIFY_CLI_VERSION="2026.5.29.2"
+# specific one. Must be >= 2026.6.15.1 (the first release shipping the prebuilt
+# binaries and the install.sh used below). Renovate keeps this pinned current.
+# renovate: datasource=github-releases depName=Mergifyio/mergify-cli versioning=pep440
+DEFAULT_MERGIFY_CLI_VERSION="2026.6.16.1"
 
-# Resolve the requested release. An explicit "latest" installs the newest release
-# unpinned; anything else (including the default above) pins it with ==.
+# Resolve the requested release. An explicit "latest" installs the newest
+# release; anything else (including the default above) pins that exact tag.
 CLI_VERSION="$(plugin_config MERGIFY_CLI_VERSION "$DEFAULT_MERGIFY_CLI_VERSION")"
+
+# Install from the upstream prebuilt-binary installer. We fetch install.sh from
+# the same git ref as the requested release so the script and the release assets
+# always agree on the asset-naming convention (it changed across releases). For
+# "latest" we use main and let install.sh resolve the newest tag itself.
 if [[ "$CLI_VERSION" == "latest" ]]; then
-  CLI_PACKAGE="mergify-cli"
+  INSTALL_REF="main"
 else
-  CLI_PACKAGE="mergify-cli==$CLI_VERSION"
+  INSTALL_REF="$CLI_VERSION"
 fi
+export MERGIFY_VERSION="$CLI_VERSION"
 
-# Install (or upgrade) mergify-cli. --force --upgrade ensures we always pick up
-# the requested release, even when a different version is already cached on the
-# agent from a previous build. With a pinned version the == constraint keeps the
-# resolution at that exact release.
-PYTHON_VERSION="$(plugin_config PYTHON_VERSION "3.13")"
-if [[ "$PYTHON_VERSION" == "system" ]]; then
-  uv tool install --force --upgrade "$CLI_PACKAGE"
-else
-  uv tool install --force --upgrade --python "$PYTHON_VERSION" "$CLI_PACKAGE"
-fi
+# install.sh drops the binary in MERGIFY_INSTALL_DIR (default ~/.local/bin);
+# make sure it is resolvable for the rest of the build.
+export MERGIFY_INSTALL_DIR="${MERGIFY_INSTALL_DIR:-$HOME/.local/bin}"
+export PATH="$MERGIFY_INSTALL_DIR:$PATH"
 
-# Verify installation
+curl -fsSL "https://raw.githubusercontent.com/Mergifyio/mergify-cli/${INSTALL_REF}/install.sh" | sh
+
+# Verify installation (install.sh already printed the version above).
 if ! command -v mergify &>/dev/null; then
   log_error "mergify-cli installation failed."
-  log_error "Try setting python_version in the plugin config (e.g., python_version: '3.13')."
   exit 1
 fi
-
-mergify --version
