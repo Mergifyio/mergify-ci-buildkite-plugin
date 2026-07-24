@@ -101,13 +101,13 @@ run_scopes_upload() {
 
   # Upload to Mergify API if token is set
   local token
-  token="$(plugin_config TOKEN "")"
-  if [[ -n "$token" ]]; then
+  token="$(resolve_token)"
+  if [[ -z "$token" ]]; then
+    log_warning "Mergify token is not set, scopes will not be sent to Mergify API"
+  else
     export MERGIFY_TOKEN="$token"
     export MERGIFY_API_URL
     MERGIFY_API_URL="$(plugin_config MERGIFY_API_URL "https://api.mergify.com")"
     mergify ci scopes-send --file "$scopes_file"
-  else
-    log_warning "Mergify token is not set, scopes will not be sent to Mergify API"
   fi
 }
