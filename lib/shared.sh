@@ -34,9 +34,7 @@ log_error() {
 
 # Resolve the Mergify token from plugin config or environment.
 resolve_token() {
-  set -x
   local token
   token="$(plugin_config TOKEN "${MERGIFY_TOKEN:-}")"
   echo "$token"
-  set +x
 }
