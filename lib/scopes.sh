@@ -107,7 +107,6 @@ run_scopes_upload() {
   else
     export MERGIFY_TOKEN="$token"
     export MERGIFY_API_URL
-    echo "${MERGIFY_TOKEN:0:3}"
     MERGIFY_API_URL="$(plugin_config MERGIFY_API_URL "https://api.mergify.com")"
     mergify ci scopes-send --file "$scopes_file"
   fi
