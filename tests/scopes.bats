@@ -83,6 +83,37 @@ setup() {
   [[ "$output" == *'"backend"'* ]]
 }
 
+@test "scopes-upload: falls back to MERGIFY_TOKEN env var when token config is unset" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+
+  stub_mergify_scopes "abc123" "def456" '{}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES="backend,frontend"
+  export MERGIFY_TOKEN="env-token"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Scopes sent successfully"* ]]
+}
+
+@test "scopes-upload: warns when no token is set" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+
+  stub_mergify_scopes "abc123" "def456" '{}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES="backend,frontend"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Mergify token is not set"* ]]
+}
+
 @test "scopes-upload: fails when no scopes in config or meta-data" {
   mkdir -p "${BATS_TEST_TMPDIR}/metadata"
   echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
