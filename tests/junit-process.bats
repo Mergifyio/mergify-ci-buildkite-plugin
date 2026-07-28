@@ -16,7 +16,7 @@ setup() {
 
   [ "$status" -eq 0 ]
   # Verify mergify was called with the report path
-  grep "junit-process reports/\*.xml" "${BATS_TEST_TMPDIR}/mergify.log"
+  grep -Fx -- "junit-process -- reports/*.xml" "${BATS_TEST_TMPDIR}/mergify.log"
   # Verify env vars were passed
   grep "MERGIFY_TOKEN=test-token" "${BATS_TEST_TMPDIR}/mergify.log"
   grep "MERGIFY_API_URL=https://api.mergify.com" "${BATS_TEST_TMPDIR}/mergify.log"
@@ -62,6 +62,41 @@ setup() {
   [ "$status" -ne 0 ]
   # No extra log on top of the CLI's own output.
   [[ "$output" != *"Failed to upload"* ]]
+}
+
+@test "junit-process: a glob match starting with a dash cannot become a CLI option" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="*.xml"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  # A file an untrusted build step (fork PR checkout, downloaded artifact)
+  # could drop in the workspace. Let bash expand the glob and this name
+  # lands in argv, where the CLI reads it as an option, not as a path.
+  local workspace="${BATS_TEST_TMPDIR}/workspace"
+  mkdir -p "$workspace"
+  touch "${workspace}/--api-url=evil.example.com.xml"
+  cd "$workspace"
+
+  run bash "${BATS_TEST_DIRNAME}/../hooks/post-command"
+
+  [ "$status" -eq 0 ]
+  # The pattern reaches the CLI unexpanded, so the malicious name never
+  # lands in argv, and `--` keeps it positional if it ever does.
+  grep -Fx -- "junit-process -- *.xml" "${BATS_TEST_TMPDIR}/mergify.log"
+  ! grep -F -- "--api-url=" "${BATS_TEST_TMPDIR}/mergify.log"
+}
+
+@test "junit-process: keeps space-separated report_path patterns" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml other/*.xml"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  run bash hooks/post-command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- "junit-process -- reports/*.xml other/*.xml" "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
 @test "junit-process: fails when report_path is missing" {
