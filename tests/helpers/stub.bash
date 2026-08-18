@@ -167,7 +167,7 @@ if [[ "\$1" == "ci" && "\$2" == "junit-process" ]]; then
   echo "junit-process \$@" >> "${log}"
   echo "MERGIFY_TOKEN=\${MERGIFY_TOKEN:-}" >> "${log}"
   echo "MERGIFY_API_URL=\${MERGIFY_API_URL:-}" >> "${log}"
-  echo "MERGIFY_JOB_NAME=\${MERGIFY_JOB_NAME:-}" >> "${log}"
+  echo "MERGIFY_TEST_JOB_NAME=\${MERGIFY_TEST_JOB_NAME:-}" >> "${log}"
   echo "MERGIFY_TEST_EXIT_CODE=\${MERGIFY_TEST_EXIT_CODE:-}" >> "${log}"
   exit ${exit_code}
 elif [[ "\$1" == "--version" ]]; then

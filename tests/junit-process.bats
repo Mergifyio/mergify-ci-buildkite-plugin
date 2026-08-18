@@ -20,7 +20,7 @@ setup() {
   # Verify env vars were passed
   grep "MERGIFY_TOKEN=test-token" "${BATS_TEST_TMPDIR}/mergify.log"
   grep "MERGIFY_API_URL=https://api.mergify.com" "${BATS_TEST_TMPDIR}/mergify.log"
-  grep "MERGIFY_JOB_NAME=test-job" "${BATS_TEST_TMPDIR}/mergify.log"
+  grep "MERGIFY_TEST_JOB_NAME=test-job" "${BATS_TEST_TMPDIR}/mergify.log"
   grep "MERGIFY_TEST_EXIT_CODE=0" "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
@@ -47,7 +47,7 @@ setup() {
   run bash hooks/post-command
 
   [ "$status" -eq 0 ]
-  grep "MERGIFY_JOB_NAME=custom-name" "${BATS_TEST_TMPDIR}/mergify.log"
+  grep "MERGIFY_TEST_JOB_NAME=custom-name" "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
 @test "junit-process: fails the step when CLI exits non-zero" {
