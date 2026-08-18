@@ -21,10 +21,15 @@ run_junit_process() {
     export MERGIFY_TOKEN="$token"
   fi
 
+  # MERGIFY_TEST_JOB_NAME is the only name mergify-cli reads for this; it has
+  # no CLI flag, so the env var is the whole interface. Exporting the
+  # near-miss MERGIFY_JOB_NAME instead fails silently — the CLI just falls
+  # back to the auto-detected step label — so the property looks wired up
+  # while doing nothing.
   local job_name
   job_name="$(plugin_config JOB_NAME "${BUILDKITE_LABEL:-}")"
   if [[ -n "$job_name" ]]; then
-    export MERGIFY_JOB_NAME="$job_name"
+    export MERGIFY_TEST_JOB_NAME="$job_name"
   fi
 
   # Map Buildkite command exit status to mergify test exit code
