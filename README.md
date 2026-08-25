@@ -2,6 +2,40 @@
 
 A Buildkite plugin for integrating with [Mergify CI Insights](https://mergify.com) — upload JUnit test reports, detect pull request scopes, and upload scopes to Mergify Merge Queue.
 
+## Authentication
+
+Put the Mergify token in `MERGIFY_TOKEN` in the agent environment. None of the
+examples below pass it through the plugin's `token` config, on purpose.
+
+`buildkite-agent pipeline upload` interpolates variables at upload time, so
+`token: "${MERGIFY_TOKEN}"` writes the plaintext secret into the stored
+pipeline, where the Buildkite UI renders it and build history keeps it. The
+agent warns about it on upload, and Buildkite Agent v4 rejects such uploads by
+default: v3's opt-in `--reject-secrets` becomes an opt-out `--allow-secrets`.
+
+Escaping does not help. `$$MERGIFY_TOKEN` survives upload as the literal string
+`$MERGIFY_TOKEN`, and the plugin prefers its `token` config over the
+environment, so that non-empty string shadows the `MERGIFY_TOKEN` that would
+have worked and is sent as the token.
+
+Supply `MERGIFY_TOKEN` the way you supply any other
+[Buildkite secret](https://buildkite.com/docs/pipelines/security/secrets/managing),
+so it only ever exists in the job's environment:
+
+- an agent [`environment` hook](https://buildkite.com/docs/agent/v3/hooks) that
+  exports `MERGIFY_TOKEN`
+- a secrets plugin that exports `MERGIFY_TOKEN` into the job from its own
+  `environment` hook, which runs before this plugin resolves the token
+
+A pipeline-level `env:` block is not one of these: it is stored with the
+pipeline just like `token` is.
+
+Unsetting `MERGIFY_TOKEN` does not necessarily stop a build from
+authenticating, because `mergify-cli` falls back to `GITHUB_TOKEN` and then to
+`gh auth token`. With none of those available, `scopes` still detects scopes and
+writes the meta-data and skips only the API upload with a warning,
+`scopes-upload` warns and skips, and `junit-process` fails the step.
+
 ## Actions
 
 ### `junit-process`
@@ -16,7 +50,6 @@ steps:
       - mergifyio/mergify-ci#v2:
           action: junit-process
           report_path: "reports/*.xml"
-          token: "${MERGIFY_TOKEN}"
 ```
 
 ### `scopes`
@@ -29,7 +62,6 @@ steps:
     plugins:
       - mergifyio/mergify-ci#v2:
           action: scopes
-          token: "${MERGIFY_TOKEN}"
 ```
 
 ### `scopes-git-refs`
@@ -63,7 +95,6 @@ steps:
     plugins:
       - mergifyio/mergify-ci#v2:
           action: scopes-upload
-          token: "${MERGIFY_TOKEN}"
           scopes: "backend,frontend"
 ```
 
@@ -80,7 +111,6 @@ steps:
     plugins:
       - mergifyio/mergify-ci#v2:
           action: scopes-upload
-          token: "${MERGIFY_TOKEN}"
 ```
 
 ### Using scopes to conditionally run steps
@@ -94,7 +124,6 @@ steps:
     plugins:
       - mergifyio/mergify-ci#v2:
           action: scopes
-          token: "${MERGIFY_TOKEN}"
 
   - label: "Backend tests"
     depends_on: scopes
@@ -104,7 +133,6 @@ steps:
       - mergifyio/mergify-ci#v2:
           action: junit-process
           report_path: "reports/*.xml"
-          token: "${MERGIFY_TOKEN}"
     # Use a dynamic pipeline or script to check scopes:
     # SCOPES=$(buildkite-agent meta-data get "mergify-ci.scopes")
     # echo "$SCOPES" | jq -e '.backend == "true"'
@@ -116,7 +144,6 @@ steps:
       - mergifyio/mergify-ci#v2:
           action: junit-process
           report_path: "reports/*.xml"
-          token: "${MERGIFY_TOKEN}"
     # SCOPES=$(buildkite-agent meta-data get "mergify-ci.scopes")
     # echo "$SCOPES" | jq -e '.frontend == "true"'
 ```
@@ -136,7 +163,6 @@ if echo "$SCOPES" | jq -e '.backend == "true"' > /dev/null 2>&1; then
       - mergifyio/mergify-ci#v2:
           action: junit-process
           report_path: "reports/*.xml"
-          token: "${MERGIFY_TOKEN}"
 YAML
 fi
 
@@ -148,7 +174,6 @@ if echo "$SCOPES" | jq -e '.frontend == "true"' > /dev/null 2>&1; then
       - mergifyio/mergify-ci#v2:
           action: junit-process
           report_path: "reports/*.xml"
-          token: "${MERGIFY_TOKEN}"
 YAML
 fi
 ```
@@ -161,7 +186,6 @@ steps:
     plugins:
       - mergifyio/mergify-ci#v2:
           action: scopes
-          token: "${MERGIFY_TOKEN}"
 
   - label: "Upload pipeline"
     depends_on: scopes
@@ -170,10 +194,13 @@ steps:
 
 ## Configuration
 
+Authentication is not one of these properties: the token comes from
+`MERGIFY_TOKEN` in the agent environment, see [Authentication](#authentication).
+
 | Property | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `action` | yes | — | `junit-process`, `scopes`, `scopes-git-refs`, or `scopes-upload` |
-| `token` | for API calls | — | Mergify CI authentication token |
+| `token` | no | — | Mergify token taken from plugin config. Plugin config is stored with the pipeline, so only set this to a value that is not a secret, such as a mock token. See [Authentication](#authentication) |
 | `report_path` | for junit-process | — | Glob path to JUnit XML files |
 | `scopes` | no | — | Comma-separated list of scopes. If not set, `scopes-upload` reads from `mergify-ci.scopes` meta-data |
 | `mergify_api_url` | no | `https://api.mergify.com` | Mergify API endpoint |
