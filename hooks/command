@@ -30,7 +30,7 @@ case "$ACTION" in
     ;;
   *)
     log_error "Unsupported action: $ACTION"
-    echo "Valid actions are: junit-process, scopes, scopes-git-refs, scopes-upload"
+    log_detail "Valid actions are: junit-process, scopes, scopes-git-refs, scopes-upload"
     exit 1
     ;;
 esac

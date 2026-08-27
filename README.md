@@ -18,6 +18,17 @@ Escaping does not help. `$$MERGIFY_TOKEN` survives upload as the literal string
 environment, so that non-empty string shadows the `MERGIFY_TOKEN` that would
 have worked and is sent as the token.
 
+The plugin says both out loud at runtime. Its `environment` hook warns whenever
+`token` is set, on every step carrying one whether or not that step goes on to
+use it: by then the upload has happened, and a baked-in secret is
+indistinguishable from a deliberate mock token. The warning never fails a step,
+because a failed `environment` hook makes the agent skip the checkout and
+command phases too.
+
+Where the token is actually used, a value starting with `$` is rejected
+outright. That is never a token, only an interpolation that did not happen, and
+it is rejected whether it arrives through `token` or through `MERGIFY_TOKEN`.
+
 Supply `MERGIFY_TOKEN` the way you supply any other
 [Buildkite secret](https://buildkite.com/docs/pipelines/security/secrets/managing),
 so it only ever exists in the job's environment:
@@ -214,7 +225,7 @@ Authentication is not one of these properties: the token comes from
 | Property | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `action` | yes | — | `junit-process`, `scopes`, `scopes-git-refs`, or `scopes-upload` |
-| `token` | no | — | Mergify token taken from plugin config. Plugin config is stored with the pipeline, so only set this to a value that is not a secret, such as a mock token. See [Authentication](#authentication) |
+| `token` | no | — | Mergify token taken from plugin config. Plugin config is stored with the pipeline, so only set this to a value that is not a secret, such as a mock token. Setting it warns on every build, and a value starting with `$` is rejected. See [Authentication](#authentication) |
 | `report_path` | for junit-process | — | Glob path to JUnit XML files |
 | `scopes` | no | — | Comma-separated list of scopes. If not set, `scopes-upload` reads from `mergify-ci.scopes` meta-data |
 | `mergify_api_url` | no | `https://api.mergify.com` | Mergify API endpoint |

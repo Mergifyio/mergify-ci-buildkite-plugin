@@ -53,3 +53,47 @@ STUB
   [ "$status" -ne 0 ]
   [[ "$output" == *"mergify-cli installation failed"* ]]
 }
+
+@test "environment: warns that a token from plugin config is stored with the pipeline" {
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="mock-token"
+
+  run bash hooks/environment
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Plugin config 'token' is set"* ]]
+}
+
+@test "environment: stays quiet when the token comes from the environment" {
+  export MERGIFY_TOKEN="env-token"
+
+  run bash hooks/environment
+
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Plugin config 'token'"* ]]
+}
+
+@test "environment: warns on an action that never resolves a token" {
+  # scopes-git-refs uses no token, and a non-PR build skips the upload path
+  # entirely, so resolve_token is never reached. The value is in the stored
+  # pipeline all the same, so the warning belongs in this per-job hook.
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-git-refs"
+  export BUILDKITE_PULL_REQUEST="false"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="mock-token"
+
+  run bash hooks/environment
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Plugin config 'token' is set"* ]]
+}
+
+@test "environment: never fails the job over a token, which would skip checkout and the command" {
+  # A failed environment hook makes the agent skip the checkout and command
+  # phases, so rejecting a token here would take down the user's test suite
+  # over how its token was delivered. Rejection happens where the token is
+  # actually used instead.
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN='$MERGIFY_TOKEN'
+
+  run bash hooks/environment
+
+  [ "$status" -eq 0 ]
+}
