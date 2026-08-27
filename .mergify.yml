@@ -1,15 +1,14 @@
 extends: .github
 
-# NOTE: no "Continuous Integration" merge protection here on purpose.
-# This repo's CI runs entirely on Buildkite (.buildkite/pipeline.yml) and
-# Buildkite posts no commit status / check-run to GitHub, so there is no
-# GitHub check to gate on (unlike mergify-cli, whose `ci-gate` is a GitHub
-# Actions job). Adding `check-success=...` here would block every PR forever.
-# Restoring a CI gate requires either enabling Buildkite's GitHub status
-# reporting or adding a GitHub Actions job that reports a check. Until then,
-# merges are gated on review requirements only.
+# The CI gate is the GitHub Actions `ci-gate` check (.github/workflows/ci.yaml).
+# It covers the bats unit tests, which stub the CLI and the agent. The Buildkite
+# pipeline is what drives the plugin as a plugin, but it reports no commit
+# status / check-run to GitHub, so nothing here can observe it and that half
+# stays ungated.
 
 shared:
+  check_runs: &CheckRuns
+    - check-success=ci-gate
   default_review_cond: &DefaultReviewCond
     - "#approved-reviews-by>=2"
     - author = dependabot[bot]
@@ -51,6 +50,10 @@ pull_request_rules:
           - devs
 
 merge_protections:
+  - name: 🤖 Continuous Integration
+    if: []
+    success_conditions:
+      - and: *CheckRuns
   - name: 👀 Review Requirements
     if: []
     success_conditions:

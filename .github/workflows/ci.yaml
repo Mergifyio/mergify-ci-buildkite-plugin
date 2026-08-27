@@ -1,0 +1,61 @@
+name: Continuous Integration
+permissions: read-all
+
+# No `branches:` filter on purpose. Merges are gated on `ci-gate`, so a PR
+# whose base branch a filter excluded would never get the check and would
+# block forever. Other repos in the org filter on `main` + `devs/**`; they
+# can, because this gate is what makes an unfiltered trigger load-bearing.
+on:
+  pull_request:
+
+# Cancel superseded runs on the same ref — a force-push or a new commit
+# makes the in-flight run obsolete, so don't keep runners busy finishing it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bats:
+    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # bats is not on the runner image. jq is, but it is installed anyway:
+      # the suite drives lib/scopes.sh for real and the plugin declares jq
+      # in plugin.yml, so the run should not silently depend on whatever the
+      # image happens to ship. `apt-get update` is retried because a mirror
+      # desync would otherwise red the only merge-blocking check for a
+      # reason that has nothing to do with the change under test.
+      - name: Install bats and jq
+        run: |
+          sudo apt-get update || sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bats jq
+
+      # --print-output-on-failure earns its place: the suite loads no
+      # bats-assert, so a bare failure prints the assertion and nothing else.
+      # It is what turns an exit 127 into "jq: command not found" in the log,
+      # which is the failure this workflow exists to stop hiding.
+      - name: Run bats
+        run: bats --print-output-on-failure tests/
+
+  # Stable check name for .mergify.yml's `check-success=ci-gate`, so the merge
+  # protection never has to change. Any job added above MUST be listed in
+  # `needs:` below, or the gate goes green while that job is red.
+  ci-gate:
+    if: ${{ !cancelled() }}
+    needs:
+      - bats
+    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+    steps:
+      # Every needed job must have succeeded. Checked here rather than with
+      # Mergifyio/gha-mergify-ci's `wait-jobs`, which passes the same job blob
+      # as `allowed-skips`, making a skipped job satisfy the gate, and which
+      # downloads mergify-cli it never uses on the one merge-blocking check.
+      - name: Verify all jobs succeeded
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS"
+          echo "$RESULTS" | jq -e 'all(.[]; .result == "success")' > /dev/null
