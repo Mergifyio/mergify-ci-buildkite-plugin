@@ -116,3 +116,27 @@ setup() {
 
   [ "$status" -eq 0 ]
 }
+
+@test "junit-process: an option-shaped report_path is not eaten as a flag" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="-n"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  run bash hooks/post-command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- "junit-process -- -n" "${BATS_TEST_TMPDIR}/mergify.log"
+}
+
+@test "junit-process: an option-shaped token is not eaten as a flag" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="-n"
+
+  run bash hooks/post-command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- "MERGIFY_TOKEN=-n" "${BATS_TEST_TMPDIR}/mergify.log"
+}

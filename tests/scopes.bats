@@ -147,3 +147,19 @@ setup() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"Unsupported action"* ]]
 }
+
+@test "scopes-upload: an option-shaped scope is not eaten as a flag" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+
+  stub_mergify_scopes "abc123" "def456" '{}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES="-e"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"-e"'* ]]
+}
