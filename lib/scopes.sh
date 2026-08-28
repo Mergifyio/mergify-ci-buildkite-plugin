@@ -36,7 +36,7 @@ run_scopes() {
   fi
 
   local token
-  token="$(resolve_token)"
+  token="$(resolve_token)" || exit 1
   if [[ -z "$token" ]]; then
     log_warning "Mergify token is not set, scopes will not be sent to Mergify API"
     return 0
@@ -80,12 +80,12 @@ run_scopes_upload() {
   fi
 
   # Support both JSON ({"backend":"true",...}) and CSV (backend,frontend) formats
-  if echo "$scopes_raw" | jq -e 'type == "object"' >/dev/null 2>&1; then
+  if jq -e 'type == "object"' >/dev/null 2>&1 <<<"$scopes_raw"; then
     # JSON object: extract keys where value is "true"
-    scopes_json=$(echo "$scopes_raw" | jq '[to_entries[] | select(.value == "true") | .key]')
+    scopes_json=$(jq '[to_entries[] | select(.value == "true") | .key]' <<<"$scopes_raw")
   else
     # CSV: split into JSON array
-    scopes_json=$(echo "$scopes_raw" | jq -R -s 'rtrimstr("\n") | split(",")')
+    scopes_json=$(jq -R -s 'rtrimstr("\n") | split(",")' <<<"$scopes_raw")
   fi
 
   # Build scopes file
@@ -101,7 +101,7 @@ run_scopes_upload() {
 
   # Upload to Mergify API if token is set
   local token
-  token="$(resolve_token)"
+  token="$(resolve_token)" || exit 1
   if [[ -z "$token" ]]; then
     log_warning "Mergify token is not set, scopes will not be sent to Mergify API"
   else
