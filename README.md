@@ -252,9 +252,16 @@ Supported platforms: Linux (x86_64, aarch64) and macOS (x86_64, aarch64).
 
 ### Running tests
 
+The suite drives the plugin for real, so it needs the same `jq` listed under
+[Requirements](#requirements). Without it the `scopes-upload` tests fail with
+exit 127.
+
 ```bash
 bats tests/
 ```
+
+CI runs them in GitHub Actions (`.github/workflows/ci.yaml`), which reports the
+`ci-gate` check that merges are gated on.
 
 ## License
 
