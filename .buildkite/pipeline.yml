@@ -1,11 +1,9 @@
+# Unit tests (bats) run in GitHub Actions, not here: this pipeline reports no
+# commit status to GitHub, so a failure would be invisible from the PR. The
+# steps below drive the plugin at the commit under test, which does need a
+# real agent — but they report nothing to GitHub either, so nothing gates on
+# them and their result is unverified from here.
 steps:
-  - label: ":bash: BATS unit tests"
-    command: bats tests/
-    plugins:
-      - docker#v5.11.0:
-          image: "bats/bats:latest"
-          mount-checkout: true
-
   - label: ":junit: Test junit-process"
     command: "echo 'Test run complete'"
     plugins:
