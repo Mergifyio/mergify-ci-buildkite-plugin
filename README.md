@@ -49,7 +49,7 @@ writes the meta-data and skips only the API upload with a warning,
 
 ## Plugin version
 
-The examples pin `mergifyio/mergify-ci#v7`. Newer tags are on the
+The examples pin `mergifyio/mergify-ci#v8`. Newer tags are on the
 [releases page](https://github.com/Mergifyio/mergify-ci-buildkite-plugin/releases);
 the pins here are bumped once a tag exists, so they can trail the newest release
 by a day.
@@ -72,7 +72,7 @@ steps:
   - label: "Run tests"
     command: pytest --junitxml=reports/junit.xml
     plugins:
-      - mergifyio/mergify-ci#v7:
+      - mergifyio/mergify-ci#v8:
           action: junit-process
           report_path: "reports/*.xml"
 ```
@@ -85,7 +85,7 @@ Detect which code scopes are affected by a pull request and upload them to the M
 steps:
   - label: "Detect scopes"
     plugins:
-      - mergifyio/mergify-ci#v7:
+      - mergifyio/mergify-ci#v8:
           action: scopes
 ```
 
@@ -98,7 +98,7 @@ steps:
   - label: "Get git refs"
     key: git-refs
     plugins:
-      - mergifyio/mergify-ci#v7:
+      - mergifyio/mergify-ci#v8:
           action: scopes-git-refs
 ```
 
@@ -112,13 +112,13 @@ steps:
   - label: "Get git refs"
     key: git-refs
     plugins:
-      - mergifyio/mergify-ci#v7:
+      - mergifyio/mergify-ci#v8:
           action: scopes-git-refs
 
   - label: "Upload scopes"
     depends_on: git-refs
     plugins:
-      - mergifyio/mergify-ci#v7:
+      - mergifyio/mergify-ci#v8:
           action: scopes-upload
           scopes: "backend,frontend"
 ```
@@ -134,7 +134,7 @@ steps:
   - label: "Upload scopes"
     depends_on: generate-scopes
     plugins:
-      - mergifyio/mergify-ci#v7:
+      - mergifyio/mergify-ci#v8:
           action: scopes-upload
 ```
 
@@ -147,7 +147,7 @@ steps:
   - label: "Detect scopes"
     key: scopes
     plugins:
-      - mergifyio/mergify-ci#v7:
+      - mergifyio/mergify-ci#v8:
           action: scopes
 
   - label: "Backend tests"
@@ -155,7 +155,7 @@ steps:
     command: pytest tests/backend/
     if: build.env("BUILDKITE_TRIGGERED_FROM_BUILD_PIPELINE_SLUG") != null || build.pull_request.id != null
     plugins:
-      - mergifyio/mergify-ci#v7:
+      - mergifyio/mergify-ci#v8:
           action: junit-process
           report_path: "reports/*.xml"
     # Use a dynamic pipeline or script to check scopes:
@@ -166,7 +166,7 @@ steps:
     depends_on: scopes
     command: npm test
     plugins:
-      - mergifyio/mergify-ci#v7:
+      - mergifyio/mergify-ci#v8:
           action: junit-process
           report_path: "reports/*.xml"
     # SCOPES=$(buildkite-agent meta-data get "mergify-ci.scopes")
@@ -185,7 +185,7 @@ if echo "$SCOPES" | jq -e '.backend == "true"' > /dev/null 2>&1; then
   - label: "Backend tests"
     command: pytest tests/backend/
     plugins:
-      - mergifyio/mergify-ci#v7:
+      - mergifyio/mergify-ci#v8:
           action: junit-process
           report_path: "reports/*.xml"
 YAML
@@ -196,7 +196,7 @@ if echo "$SCOPES" | jq -e '.frontend == "true"' > /dev/null 2>&1; then
   - label: "Frontend tests"
     command: npm test
     plugins:
-      - mergifyio/mergify-ci#v7:
+      - mergifyio/mergify-ci#v8:
           action: junit-process
           report_path: "reports/*.xml"
 YAML
@@ -209,7 +209,7 @@ steps:
   - label: "Detect scopes"
     key: scopes
     plugins:
-      - mergifyio/mergify-ci#v7:
+      - mergifyio/mergify-ci#v8:
           action: scopes
 
   - label: "Upload pipeline"
