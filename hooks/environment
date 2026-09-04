@@ -5,6 +5,8 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/shared.sh
 source "${DIR}/../lib/shared.sh"
 
+warn_token_config
+
 log_info "Installing mergify-cli..."
 
 # Default mergify-cli release installed when the plugin config doesn't request a

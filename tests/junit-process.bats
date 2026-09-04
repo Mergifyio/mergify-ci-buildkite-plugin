@@ -140,3 +140,60 @@ setup() {
   [ "$status" -eq 0 ]
   grep -Fx -- "MERGIFY_TOKEN=-n" "${BATS_TEST_TMPDIR}/mergify.log"
 }
+
+@test "junit-process: rejects a token config that is an unexpanded variable" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
+  # What `token: "$$MERGIFY_TOKEN"` reaches the plugin as: the escape survives
+  # upload, and plugin config wins, so the literal shadows the env var that
+  # would have worked and is sent as the token.
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN='$MERGIFY_TOKEN'
+  export MERGIFY_TOKEN="env-token"
+
+  run bash hooks/post-command
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unexpanded variable reference"* ]]
+  [ ! -f "${BATS_TEST_TMPDIR}/mergify.log" ]
+}
+
+@test "junit-process: rejects an unexpanded variable arriving through the environment" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
+  # An env: block carrying the same literal is just as unusable as the plugin
+  # config form, so the check is on the resolved token, not on its source.
+  export MERGIFY_TOKEN='$SOME_OTHER_SECRET'
+
+  run bash hooks/post-command
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unexpanded variable reference"* ]]
+}
+
+@test "junit-process: rejects an unexpanded variable padded with space or quotes" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN=' "$MERGIFY_TOKEN"'
+
+  run bash hooks/post-command
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unexpanded variable reference"* ]]
+}
+
+@test "junit-process: never echoes the rejected token value into the build log" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
+  # A `$`-leading value can still be a real secret: bcrypt and argon2 hashes
+  # both start with `$`, and the build log is kept forever.
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN='$2b$12$notarealsecretbutshaped'
+
+  run bash hooks/post-command
+
+  [ "$status" -ne 0 ]
+  [[ "$output" != *"notarealsecretbutshaped"* ]]
+}
