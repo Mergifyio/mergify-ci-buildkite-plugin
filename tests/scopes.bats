@@ -38,7 +38,8 @@ setup() {
   run bash hooks/command
 
   [ "$status" -eq 0 ]
-  grep "scopes-send" "${BATS_TEST_TMPDIR}/buildkite-agent.log" || true
+  grep -Fx -- "scopes-send --scopes-json /tmp/mergify-scopes.json" "${BATS_TEST_TMPDIR}/mergify.log"
+  grep -Fx -- 'scopes-json={"scopes":["backend"]}' "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
 @test "scopes: warns when token is not set" {
@@ -64,6 +65,8 @@ setup() {
   run bash hooks/command
 
   [ "$status" -eq 0 ]
+  grep -Fx -- "scopes-send --scopes-json /tmp/mergify-scopes.json" "${BATS_TEST_TMPDIR}/mergify.log"
+  grep -Fx -- 'scopes-json={"base_ref":"abc123","head_ref":"def456","scopes":["backend","frontend"]}' "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
 @test "scopes-upload: reads JSON scopes from meta-data" {
@@ -81,6 +84,7 @@ setup() {
   [ "$status" -eq 0 ]
   # Verify only "true" scopes are included
   [[ "$output" == *'"backend"'* ]]
+  grep -Fx -- 'scopes-json={"base_ref":"abc123","head_ref":"def456","scopes":["backend"]}' "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
 @test "scopes-upload: falls back to MERGIFY_TOKEN env var when token config is unset" {
@@ -162,4 +166,5 @@ setup() {
 
   [ "$status" -eq 0 ]
   [[ "$output" == *'"-e"'* ]]
+  grep -Fx -- 'scopes-json={"base_ref":"abc123","head_ref":"def456","scopes":["-e"]}' "${BATS_TEST_TMPDIR}/mergify.log"
 }
