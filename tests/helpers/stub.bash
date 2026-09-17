@@ -1,5 +1,7 @@
 #!/bin/bash
 
+_STUB_HELPERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Create a stub command that records its invocations and returns a canned response.
 # Usage: stub_command <name> <exit_code> [stdout_output]
 stub_command() {
@@ -74,109 +76,122 @@ STUB
   export PATH="${stub_dir}:${PATH}"
 }
 
-# Create a mergify stub that mimics the real CLI: when BUILDKITE=true,
-# the CLI writes base/head/source directly to buildkite meta-data.
-stub_mergify_git_refs() {
-  local base="$1"
-  local head="$2"
+# Writes a `mergify` stub. Every `ci <subcommand>` call must satisfy the argv
+# contract in mergify-cli.bash, or the stub exits 2 the way clap does: matching
+# on the subcommand alone is how a deprecated `scopes-send --file` went
+# unnoticed. An accepted call is logged to mergify.log as "<subcommand> <args>"
+# and then handed to <handlers>, `case "$subcommand"` arms that read the parsed
+# options from `$parsed` and must exit. <vars> is sourced first, so handlers
+# can take scenario values without escaping them into the script.
+_stub_mergify() {
+  local vars="$1"
+  local handlers="$2"
   local stub_dir="${BATS_TEST_TMPDIR}/stubs"
 
   mkdir -p "$stub_dir"
-  cat > "${stub_dir}/mergify" <<STUB
-#!/bin/bash
-if [[ "\$1" == "ci" && "\$2" == "git-refs" ]]; then
-  echo "Base: ${base}"
-  echo "Head: ${head}"
-  if [[ "\${BUILDKITE:-}" == "true" ]]; then
-    buildkite-agent meta-data set "mergify-ci.base" "${base}"
-    buildkite-agent meta-data set "mergify-ci.head" "${head}"
-    buildkite-agent meta-data set "mergify-ci.source" "buildkite_pull_request"
-  fi
-  exit 0
-elif [[ "\$1" == "--version" ]]; then
+  {
+    printf '#!/bin/bash\n'
+    printf 'source %q\n' "${_STUB_HELPERS_DIR}/mergify-cli.bash"
+    printf 'LOG=%q\n' "${BATS_TEST_TMPDIR}/mergify.log"
+    printf '%s\n' "$vars"
+    cat <<'STUB'
+if [[ "${1:-}" == "--version" ]]; then
   echo "mergify-cli 0.0.0-stub"
   exit 0
 fi
-echo "Unexpected args: \$@" >&2
+if [[ "${1:-}" != "ci" || $# -lt 2 ]]; then
+  echo "Unexpected args: $*" >&2
+  exit 1
+fi
+subcommand="$2"
+shift 2
+parsed="$(mergify_cli_parse "$subcommand" "$@")" || exit 2
+printf '%s\n' "${subcommand}${*:+ $*}" >> "$LOG"
+case "$subcommand" in
+STUB
+    printf '%s\n' "$handlers"
+    cat <<'STUB'
+esac
+echo "Unexpected subcommand: ${subcommand}" >&2
 exit 1
 STUB
+  } > "${stub_dir}/mergify"
   chmod +x "${stub_dir}/mergify"
   export PATH="${stub_dir}:${PATH}"
+}
+
+# Create a mergify stub that mimics the real CLI: when BUILDKITE=true,
+# the CLI writes base/head/source directly to buildkite meta-data.
+stub_mergify_git_refs() {
+  local vars
+  vars="$(printf 'STUB_BASE=%q\nSTUB_HEAD=%q\n' "$1" "$2")"
+
+  _stub_mergify "$vars" "$(cat <<'HANDLERS'
+  git-refs)
+    printf 'Base: %s\nHead: %s\n' "$STUB_BASE" "$STUB_HEAD"
+    if [[ "${BUILDKITE:-}" == "true" ]]; then
+      buildkite-agent meta-data set "mergify-ci.base" "$STUB_BASE"
+      buildkite-agent meta-data set "mergify-ci.head" "$STUB_HEAD"
+      buildkite-agent meta-data set "mergify-ci.source" "buildkite_pull_request"
+    fi
+    exit 0
+    ;;
+HANDLERS
+)"
 }
 
 # Create a mergify stub for scopes action. Mimics the real CLI which,
 # when BUILDKITE=true, writes base/head/source/scopes meta-data and a
-# Buildkite annotation directly.
+# Buildkite annotation directly. `scopes-send` loads its --scopes-json file
+# the way the CLI does and logs it as `scopes-json=<compact json>`, so a test
+# can assert what would have been uploaded.
 stub_mergify_scopes() {
-  local base="$1"
-  local head="$2"
-  local scopes_json="$3"  # e.g. '{"backend": "true", "frontend": "false"}'
-  local stub_dir="${BATS_TEST_TMPDIR}/stubs"
+  local vars
+  # $3 is the scopes meta-data, e.g. '{"backend": "true", "frontend": "false"}'
+  vars="$(printf 'STUB_BASE=%q\nSTUB_HEAD=%q\nSTUB_SCOPES=%q\n' "$1" "$2" "$3")"
 
-  mkdir -p "$stub_dir"
-  cat > "${stub_dir}/mergify" <<STUB
-#!/bin/bash
-if [[ "\$1" == "ci" && "\$2" == "scopes" ]]; then
-  # Parse --write flag
-  WRITE_FILE=""
-  shift 2
-  while [[ \$# -gt 0 ]]; do
-    case "\$1" in
-      --write) WRITE_FILE="\$2"; shift 2 ;;
-      *) shift ;;
-    esac
-  done
-  echo "Base: ${base}"
-  echo "Head: ${head}"
-  if [[ "\${BUILDKITE:-}" == "true" ]]; then
-    buildkite-agent meta-data set "mergify-ci.base" "${base}"
-    buildkite-agent meta-data set "mergify-ci.head" "${head}"
-    buildkite-agent meta-data set "mergify-ci.source" "buildkite_pull_request"
-    buildkite-agent meta-data set "mergify-ci.scopes" '${scopes_json}'
-    buildkite-agent annotate "stub-annotation" --style "info" --context "mergify-ci-scopes"
-  fi
-  if [[ -n "\$WRITE_FILE" ]]; then
-    echo '{"scopes": ["backend"]}' > "\$WRITE_FILE"
-  fi
-  exit 0
-elif [[ "\$1" == "ci" && "\$2" == "scopes-send" ]]; then
-  echo "Scopes sent successfully"
-  exit 0
-elif [[ "\$1" == "--version" ]]; then
-  echo "mergify-cli 0.0.0-stub"
-  exit 0
-fi
-echo "Unexpected args: \$@" >&2
-exit 1
-STUB
-  chmod +x "${stub_dir}/mergify"
-  export PATH="${stub_dir}:${PATH}"
+  _stub_mergify "$vars" "$(cat <<'HANDLERS'
+  scopes)
+    printf 'Base: %s\nHead: %s\n' "$STUB_BASE" "$STUB_HEAD"
+    if [[ "${BUILDKITE:-}" == "true" ]]; then
+      buildkite-agent meta-data set "mergify-ci.base" "$STUB_BASE"
+      buildkite-agent meta-data set "mergify-ci.head" "$STUB_HEAD"
+      buildkite-agent meta-data set "mergify-ci.source" "buildkite_pull_request"
+      buildkite-agent meta-data set "mergify-ci.scopes" "$STUB_SCOPES"
+      buildkite-agent annotate "stub-annotation" --style "info" --context "mergify-ci-scopes"
+    fi
+    if write_file="$(mergify_cli_value "$parsed" write)"; then
+      echo '{"scopes": ["backend"]}' > "$write_file"
+    fi
+    exit 0
+    ;;
+  scopes-send)
+    if scopes_json="$(mergify_cli_value "$parsed" scopes-json)"; then
+      mergify_cli_check_scopes_json "$scopes_json" || exit 1
+      printf 'scopes-json=%s\n' "$(jq -c . "$scopes_json")" >> "$LOG"
+    fi
+    echo "Scopes sent successfully"
+    exit 0
+    ;;
+HANDLERS
+)"
 }
 
 # Create a mergify stub for junit-process action.
 stub_mergify_junit() {
-  local exit_code="${1:-0}"
-  local stub_dir="${BATS_TEST_TMPDIR}/stubs"
-  local log="${BATS_TEST_TMPDIR}/mergify.log"
+  local vars
+  vars="$(printf 'STUB_EXIT_CODE=%q\n' "${1:-0}")"
 
-  mkdir -p "$stub_dir"
-  cat > "${stub_dir}/mergify" <<STUB
-#!/bin/bash
-if [[ "\$1" == "ci" && "\$2" == "junit-process" ]]; then
-  shift 2
-  echo "junit-process \$@" >> "${log}"
-  echo "MERGIFY_TOKEN=\${MERGIFY_TOKEN:-}" >> "${log}"
-  echo "MERGIFY_API_URL=\${MERGIFY_API_URL:-}" >> "${log}"
-  echo "MERGIFY_TEST_JOB_NAME=\${MERGIFY_TEST_JOB_NAME:-}" >> "${log}"
-  echo "MERGIFY_TEST_EXIT_CODE=\${MERGIFY_TEST_EXIT_CODE:-}" >> "${log}"
-  exit ${exit_code}
-elif [[ "\$1" == "--version" ]]; then
-  echo "mergify-cli 0.0.0-stub"
-  exit 0
-fi
-echo "Unexpected args: \$@" >&2
-exit 1
-STUB
-  chmod +x "${stub_dir}/mergify"
-  export PATH="${stub_dir}:${PATH}"
+  _stub_mergify "$vars" "$(cat <<'HANDLERS'
+  junit-process)
+    {
+      echo "MERGIFY_TOKEN=${MERGIFY_TOKEN:-}"
+      echo "MERGIFY_API_URL=${MERGIFY_API_URL:-}"
+      echo "MERGIFY_TEST_JOB_NAME=${MERGIFY_TEST_JOB_NAME:-}"
+      echo "MERGIFY_TEST_EXIT_CODE=${MERGIFY_TEST_EXIT_CODE:-}"
+    } >> "$LOG"
+    exit "$STUB_EXIT_CODE"
+    ;;
+HANDLERS
+)"
 }

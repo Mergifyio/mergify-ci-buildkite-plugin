@@ -45,7 +45,7 @@ run_scopes() {
   export MERGIFY_TOKEN="$token"
   export MERGIFY_API_URL
   MERGIFY_API_URL="$(plugin_config MERGIFY_API_URL "https://api.mergify.com")"
-  mergify ci scopes-send --file "$scopes_file"
+  mergify ci scopes-send --scopes-json "$scopes_file"
 }
 
 run_scopes_upload() {
@@ -108,6 +108,6 @@ run_scopes_upload() {
     export MERGIFY_TOKEN="$token"
     export MERGIFY_API_URL
     MERGIFY_API_URL="$(plugin_config MERGIFY_API_URL "https://api.mergify.com")"
-    mergify ci scopes-send --file "$scopes_file"
+    mergify ci scopes-send --scopes-json "$scopes_file"
   fi
 }
