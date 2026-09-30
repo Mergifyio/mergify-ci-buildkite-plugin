@@ -13,6 +13,12 @@
       "matchDatasources": ["github-releases"],
       "matchPackageNames": ["Mergifyio/mergify-cli"],
       "minimumReleaseAge": "2 days"
+    },
+    {
+      "description": "The README pins this repository's own tags: bump them as soon as a tag is cut",
+      "matchDatasources": ["github-tags"],
+      "matchPackageNames": ["Mergifyio/mergify-ci-buildkite-plugin"],
+      "minimumReleaseAge": "0 days"
     }
   ],
   "customManagers": [
@@ -22,6 +28,16 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s+[A-Z_]+=\"(?<currentValue>[^\"]+)\""
       ]
+    },
+    {
+      "description": "Bump every mergifyio/mergify-ci#<tag> pin in the README examples to the newest plugin tag",
+      "customType": "regex",
+      "managerFilePatterns": ["/^README\\.md$/"],
+      "matchStrings": [
+        "mergifyio/mergify-ci#(?<currentValue>[A-Za-z0-9][A-Za-z0-9._-]*)"
+      ],
+      "datasourceTemplate": "github-tags",
+      "depNameTemplate": "Mergifyio/mergify-ci-buildkite-plugin"
     }
   ]
 }
