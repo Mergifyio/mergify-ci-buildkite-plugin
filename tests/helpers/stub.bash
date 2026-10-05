@@ -144,7 +144,8 @@ HANDLERS
 # when BUILDKITE=true, writes base/head/source/scopes meta-data and a
 # Buildkite annotation directly. `scopes-send` loads its --scopes-json file
 # the way the CLI does and logs it as `scopes-json=<compact json>`, so a test
-# can assert what would have been uploaded.
+# can assert what would have been uploaded, and logs MERGIFY_API_URL so a test
+# can assert where.
 stub_mergify_scopes() {
   local vars
   # $3 is the scopes meta-data, e.g. '{"backend": "true", "frontend": "false"}'
@@ -170,6 +171,7 @@ stub_mergify_scopes() {
       mergify_cli_check_scopes_json "$scopes_json" || exit 1
       printf 'scopes-json=%s\n' "$(jq -c . "$scopes_json")" >> "$LOG"
     fi
+    echo "MERGIFY_API_URL=${MERGIFY_API_URL:-}" >> "$LOG"
     echo "Scopes sent successfully"
     exit 0
     ;;

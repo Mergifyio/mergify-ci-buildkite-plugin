@@ -5,6 +5,7 @@ setup() {
   stub_buildkite_agent
   export BUILDKITE="true"
   export BUILDKITE_PULL_REQUEST="42"
+  unset MERGIFY_API_URL BUILDKITE_PLUGIN_MERGIFY_CI_MERGIFY_API_URL
 }
 
 @test "scopes-git-refs: stores base and head in meta-data" {
@@ -40,6 +41,19 @@ setup() {
   [ "$status" -eq 0 ]
   grep -Fx -- "scopes-send --scopes-json /tmp/mergify-scopes.json" "${BATS_TEST_TMPDIR}/mergify.log"
   grep -Fx -- 'scopes-json={"scopes":["backend"]}' "${BATS_TEST_TMPDIR}/mergify.log"
+  grep -Fx -- "MERGIFY_API_URL=https://api.mergify.com" "${BATS_TEST_TMPDIR}/mergify.log"
+}
+
+@test "scopes: falls back to MERGIFY_API_URL env var when mergify_api_url config is unset" {
+  stub_mergify_scopes "abc123" "def456" '{"backend": "true"}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
+  export MERGIFY_TOKEN="env-token"
+  export MERGIFY_API_URL="https://mergify.example.internal"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- "MERGIFY_API_URL=https://mergify.example.internal" "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
 @test "scopes: warns when token is not set" {
@@ -101,6 +115,23 @@ setup() {
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Scopes sent successfully"* ]]
+}
+
+@test "scopes-upload: falls back to MERGIFY_API_URL env var when mergify_api_url config is unset" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+
+  stub_mergify_scopes "abc123" "def456" '{}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES="backend,frontend"
+  export MERGIFY_TOKEN="env-token"
+  export MERGIFY_API_URL="https://mergify.example.internal"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- "MERGIFY_API_URL=https://mergify.example.internal" "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
 @test "scopes-upload: warns when no token is set" {

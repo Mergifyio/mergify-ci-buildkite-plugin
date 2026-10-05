@@ -4,6 +4,7 @@ setup() {
   load helpers/stub
   export BUILDKITE_LABEL="test-job"
   export BUILDKITE_COMMAND_EXIT_STATUS="0"
+  unset MERGIFY_API_URL BUILDKITE_PLUGIN_MERGIFY_CI_MERGIFY_API_URL
 }
 
 @test "junit-process: uploads report with correct env vars" {
@@ -19,9 +20,49 @@ setup() {
   grep -Fx -- "junit-process -- reports/*.xml" "${BATS_TEST_TMPDIR}/mergify.log"
   # Verify env vars were passed
   grep "MERGIFY_TOKEN=test-token" "${BATS_TEST_TMPDIR}/mergify.log"
-  grep "MERGIFY_API_URL=https://api.mergify.com" "${BATS_TEST_TMPDIR}/mergify.log"
+  grep -Fx -- "MERGIFY_API_URL=https://api.mergify.com" "${BATS_TEST_TMPDIR}/mergify.log"
   grep "MERGIFY_TEST_JOB_NAME=test-job" "${BATS_TEST_TMPDIR}/mergify.log"
   grep "MERGIFY_TEST_EXIT_CODE=0" "${BATS_TEST_TMPDIR}/mergify.log"
+}
+
+@test "junit-process: falls back to MERGIFY_API_URL env var when mergify_api_url config is unset" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
+  export MERGIFY_TOKEN="env-token"
+  export MERGIFY_API_URL="https://mergify.example.internal"
+
+  run bash hooks/post-command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- "MERGIFY_API_URL=https://mergify.example.internal" "${BATS_TEST_TMPDIR}/mergify.log"
+}
+
+@test "junit-process: an empty MERGIFY_API_URL env var falls back to the SaaS default" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
+  export MERGIFY_TOKEN="env-token"
+  export MERGIFY_API_URL=""
+
+  run bash hooks/post-command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- "MERGIFY_API_URL=https://api.mergify.com" "${BATS_TEST_TMPDIR}/mergify.log"
+}
+
+@test "junit-process: mergify_api_url config wins over the MERGIFY_API_URL env var" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_MERGIFY_API_URL="https://from-config.example"
+  export MERGIFY_TOKEN="env-token"
+  export MERGIFY_API_URL="https://from-env.example"
+
+  run bash hooks/post-command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- "MERGIFY_API_URL=https://from-config.example" "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
 @test "junit-process: maps non-zero exit status to exit code 1" {

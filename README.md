@@ -41,6 +41,10 @@ so it only ever exists in the job's environment:
 A pipeline-level `env:` block is not one of these: it is stored with the
 pipeline just like `token` is.
 
+On a self-hosted Mergify, export `MERGIFY_API_URL` next to `MERGIFY_TOKEN` the
+same way. The plugin uses it when `mergify_api_url` is not set, so the token
+goes to your instance and not to `https://api.mergify.com`.
+
 Unsetting `MERGIFY_TOKEN` does not necessarily stop a build from
 authenticating, because `mergify-cli` falls back to `GITHUB_TOKEN` and then to
 `gh auth token`. With none of those available, `scopes` still detects scopes and
@@ -228,7 +232,7 @@ Authentication is not one of these properties: the token comes from
 | `token` | no | — | Mergify token taken from plugin config. Plugin config is stored with the pipeline, so only set this to a value that is not a secret, such as a mock token. Setting it warns on every build, and a value starting with `$` is rejected. See [Authentication](#authentication) |
 | `report_path` | for junit-process | — | Glob path to JUnit XML files |
 | `scopes` | no | — | Comma-separated list of scopes. If not set, `scopes-upload` reads from `mergify-ci.scopes` meta-data |
-| `mergify_api_url` | no | `https://api.mergify.com` | Mergify API endpoint |
+| `mergify_api_url` | no | `MERGIFY_API_URL` from the environment, else `https://api.mergify.com` | Mergify API endpoint |
 | `job_name` | no | Step label | Override job name (useful for matrix builds) |
 | `mergify_config_path` | no | — | Path to `.mergify.yml` configuration file |
 | `mergify_cli_version` | no | pinned default | Version of `mergify-cli` to install. Leave unset to use the plugin's pinned default (kept current by Renovate, see `hooks/environment`), pin an exact release (e.g. `2026.6.16.1`, must be `>= 2026.6.15.1`), or use `latest` to always install the newest released version. |
