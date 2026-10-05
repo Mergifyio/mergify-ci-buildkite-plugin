@@ -13,7 +13,7 @@ run_junit_process() {
 
   # Export Mergify environment
   export MERGIFY_API_URL
-  MERGIFY_API_URL="$(plugin_config MERGIFY_API_URL "https://api.mergify.com")"
+  MERGIFY_API_URL="$(resolve_api_url)"
 
   local token
   token="$(resolve_token)" || exit 1

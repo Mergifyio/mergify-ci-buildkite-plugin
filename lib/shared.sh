@@ -95,3 +95,12 @@ resolve_token() {
 
   printf '%s\n' "$token"
 }
+
+# Resolve the Mergify API URL from plugin config or environment. Plugin config
+# wins, same as resolve_token. The environment fallback must not be dropped:
+# callers export the result as MERGIFY_API_URL, so falling back to the SaaS
+# default here would overwrite an on-prem URL exported next to MERGIFY_TOKEN and
+# send that token to api.mergify.com.
+resolve_api_url() {
+  plugin_config MERGIFY_API_URL "${MERGIFY_API_URL:-https://api.mergify.com}"
+}
