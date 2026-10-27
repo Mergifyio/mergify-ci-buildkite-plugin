@@ -11,9 +11,11 @@ log_info "Installing mergify-cli..."
 
 # Default mergify-cli release installed when the plugin config doesn't request a
 # specific one. Must be >= 2026.6.15.1 (the first release shipping the prebuilt
-# binaries and the install.sh used below). Renovate keeps this pinned current.
+# binaries and the install.sh used below), and >= 2026.10.6 for `mergify ci
+# scopes` to read a merge queue batch's scopes from its git note on a branch
+# build. Renovate keeps this pinned current.
 # renovate: datasource=github-releases depName=Mergifyio/mergify-cli versioning=pep440
-DEFAULT_MERGIFY_CLI_VERSION="2026.6.16.1"
+DEFAULT_MERGIFY_CLI_VERSION="2026.10.8"
 
 # Resolve the requested release. An explicit "latest" installs the newest
 # release; anything else (including the default above) pins that exact tag.
