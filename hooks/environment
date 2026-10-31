@@ -15,7 +15,7 @@ log_info "Installing mergify-cli..."
 # scopes` to read a merge queue batch's scopes from its git note on a branch
 # build. Renovate keeps this pinned current.
 # renovate: datasource=github-releases depName=Mergifyio/mergify-cli versioning=pep440
-DEFAULT_MERGIFY_CLI_VERSION="2026.10.8"
+DEFAULT_MERGIFY_CLI_VERSION="2026.10.11"
 
 # Resolve the requested release. An explicit "latest" installs the newest
 # release; anything else (including the default above) pins that exact tag.
