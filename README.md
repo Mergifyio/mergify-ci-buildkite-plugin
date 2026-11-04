@@ -56,7 +56,8 @@ writes the meta-data and skips only the API upload with a warning,
 The examples pin `mergifyio/mergify-ci#v8`. Newer tags are on the
 [releases page](https://github.com/Mergifyio/mergify-ci-buildkite-plugin/releases);
 the pins here are bumped once a tag exists, so they can trail the newest release
-by a day.
+by a day. A change of the plugin's default `mergify-cli` version releases itself
+as the next tag once it lands on `main`.
 
 Coming from `#v2` or older, drop `python_version` from the plugin config before
 you move. v5 removed that property and the schema sets

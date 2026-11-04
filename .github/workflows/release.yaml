@@ -1,0 +1,95 @@
+name: Release
+permissions: {}
+
+on:
+  push:
+    branches:
+      - main
+  # Dry run: prints the release a push of the dispatched ref would cut, and
+  # creates nothing.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    timeout-minutes: 5
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Release the default mergify-cli version if no release installs it
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+          default_cli() {
+            local version
+            version=$(
+              gh api "repos/$REPO/contents/hooks/environment?ref=$1" \
+                -H "Accept: application/vnd.github.raw" \
+                | sed -n 's/^DEFAULT_MERGIFY_CLI_VERSION="\([^"]*\)"$/\1/p'
+            )
+            if [ -z "$version" ]; then
+              echo "::error::No DEFAULT_MERGIFY_CLI_VERSION in hooks/environment at $1" >&2
+              exit 1
+            fi
+            echo "$version"
+          }
+
+          current=$(default_cli "$GITHUB_SHA")
+
+          # Compare with the latest release rather than with this push's diff:
+          # a run that failed is caught up by the next push to main.
+          latest=$(
+            gh api --paginate "repos/$REPO/releases" \
+              --jq '.[] | select((.draft or .prerelease) | not) | .tag_name' \
+              | { grep -E '^v[0-9]+$' || true; } \
+              | sort -V | tail -n 1
+          )
+          if [[ ! "$latest" =~ ^v([0-9]+)$ ]]; then
+            echo "::error::No published vN release found"
+            exit 1
+          fi
+          # Pipelines pin a whole tag (`mergifyio/mergify-ci#v8`) and no range
+          # floats over releases, so every release is the next vN.
+          next="v$((BASH_REMATCH[1] + 1))"
+
+          released=$(default_cli "$latest")
+          if [ "$current" = "$released" ]; then
+            echo "$latest already installs mergify-cli $current by default" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # On an existing tag the API ignores --target and publishes the
+          # release on whatever commit that tag points at.
+          if gh api "repos/$REPO/git/ref/tags/$next" > /dev/null 2>&1; then
+            echo "::error::Tag $next exists without a published release: publish or delete it"
+            exit 1
+          fi
+
+          generated=$(
+            gh api -X POST "repos/$REPO/releases/generate-notes" \
+              -f tag_name="$next" -f target_commitish="$GITHUB_SHA" \
+              -f previous_tag_name="$latest" --jq .body
+          )
+          notes="Installs [mergify-cli $current](https://github.com/Mergifyio/mergify-cli/releases/tag/$current) by default (was $released).
+
+          $generated"
+          if [ "$DRY_RUN" = true ]; then
+            {
+              echo "Dry run: would release $next at $GITHUB_SHA with these notes:"
+              echo
+              echo "$notes"
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          gh release create "$next" --repo "$REPO" --target "$GITHUB_SHA" \
+            --title "$next" --notes "$notes"
+          echo "Released $next at $GITHUB_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
