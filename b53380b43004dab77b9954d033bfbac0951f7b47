@@ -1,1 +1,6 @@
-Bump the new README examples' plugin pin to v10, which main moved to while this was open.
+Revision history for #38:
+
+rev 2 (content) 2026-11-08 15:39 UTC — Bump the new README examples' plugin pin to v10, which main moved to while this was open.
+rev 1 (initial) 2026-11-08 15:39 UTC
+
+<!-- mergify-revision-data: {"schema_version":1,"pull_number":38,"entries":[{"number":1,"change_type":"initial","old_sha":null,"new_sha":"bc728feaa6393e613d764cf924858aaf4c7a5efb","timestamp_iso":"2026-11-08T15:39:36Z","reason":"","replay_sha":null,"compare_url":null},{"number":2,"change_type":"content","old_sha":"bc728feaa6393e613d764cf924858aaf4c7a5efb","new_sha":"b53380b43004dab77b9954d033bfbac0951f7b47","timestamp_iso":"2026-11-08T15:39:36Z","reason":"Bump the new README examples' plugin pin to v10, which main moved to while this was open.","replay_sha":null,"compare_url":"https://github.com/Mergifyio/mergify-ci-buildkite-plugin/compare/bc728feaa6393e613d764cf924858aaf4c7a5efb...b53380b43004dab77b9954d033bfbac0951f7b47"}]} -->
