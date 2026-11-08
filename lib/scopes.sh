@@ -5,6 +5,11 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/shared.sh
 source "${DIR}/shared.sh"
 
+# Succeeds when the step declares that the pull request impacts every scope.
+all_scopes_requested() {
+  [[ "$(plugin_config ALL_SCOPES "false")" == "true" ]]
+}
+
 run_scopes_git_refs() {
   log_info "Detecting git refs..."
 
@@ -42,10 +47,27 @@ run_scopes() {
     return 0
   fi
 
+  local args=(--scopes-json "$scopes_file")
+
+  # A report replaces the previous one for the same commit, so the extra
+  # scopes go in the detection's report rather than in one of their own. The
+  # CLI trims each line and skips the empty ones.
+  local extra_scopes
+  extra_scopes="$(plugin_config SCOPES "")"
+  if [[ -n "$extra_scopes" ]]; then
+    local extra_scopes_file="/tmp/mergify-extra-scopes.txt"
+    printf '%s\n' "$extra_scopes" | tr ',' '\n' > "$extra_scopes_file"
+    args+=(--scopes-file "$extra_scopes_file")
+  fi
+
+  if all_scopes_requested; then
+    args+=(--all)
+  fi
+
   export MERGIFY_TOKEN="$token"
   export MERGIFY_API_URL
   MERGIFY_API_URL="$(resolve_api_url)"
-  mergify ci scopes-send --scopes-json "$scopes_file"
+  mergify ci scopes-send "${args[@]}"
 }
 
 run_scopes_upload() {
@@ -74,13 +96,16 @@ run_scopes_upload() {
     scopes_raw="$(buildkite-agent meta-data get "mergify-ci.scopes" 2>/dev/null || true)"
   fi
 
-  if [[ -z "$scopes_raw" ]]; then
+  # A pull request that impacts every scope may carry no concrete one.
+  if [[ -z "$scopes_raw" ]] && ! all_scopes_requested; then
     log_error "No scopes found: set 'scopes' in plugin config or run a 'scopes' step first"
     exit 1
   fi
 
   # Support both JSON ({"backend":"true",...}) and CSV (backend,frontend) formats
-  if jq -e 'type == "object"' >/dev/null 2>&1 <<<"$scopes_raw"; then
+  if [[ -z "$scopes_raw" ]]; then
+    scopes_json="[]"
+  elif jq -e 'type == "object"' >/dev/null 2>&1 <<<"$scopes_raw"; then
     # JSON object: extract keys where value is "true"
     scopes_json=$(jq '[to_entries[] | select(.value == "true") | .key]' <<<"$scopes_raw")
   else
@@ -105,9 +130,13 @@ run_scopes_upload() {
   if [[ -z "$token" ]]; then
     log_warning "Mergify token is not set, scopes will not be sent to Mergify API"
   else
+    local args=(--scopes-json "$scopes_file")
+    if all_scopes_requested; then
+      args+=(--all)
+    fi
     export MERGIFY_TOKEN="$token"
     export MERGIFY_API_URL
     MERGIFY_API_URL="$(resolve_api_url)"
-    mergify ci scopes-send --scopes-json "$scopes_file"
+    mergify ci scopes-send "${args[@]}"
   fi
 }

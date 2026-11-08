@@ -143,8 +143,11 @@ HANDLERS
 # Create a mergify stub for scopes action. Mimics the real CLI which,
 # when BUILDKITE=true, writes base/head/source/scopes meta-data and a
 # Buildkite annotation directly. `scopes-send` loads its --scopes-json file
-# the way the CLI does and logs it as `scopes-json=<compact json>`, so a test
-# can assert what would have been uploaded, and logs MERGIFY_API_URL so a test
+# the way the CLI does and logs it as `scopes-json=<compact json>`, then logs
+# the one report the CLI would send as `sent=<compact json>`: the
+# --scopes-json scopes followed by the --scopes-file lines (trimmed, blanks
+# skipped), with `all_scopes` set by --all or by the JSON file. So a test can
+# assert what would have been uploaded, and it logs MERGIFY_API_URL so a test
 # can assert where.
 stub_mergify_scopes() {
   local vars
@@ -167,10 +170,27 @@ stub_mergify_scopes() {
     exit 0
     ;;
   scopes-send)
+    sent_scopes='[]'
+    sent_all=false
     if scopes_json="$(mergify_cli_value "$parsed" scopes-json)"; then
       mergify_cli_check_scopes_json "$scopes_json" || exit 1
       printf 'scopes-json=%s\n' "$(jq -c . "$scopes_json")" >> "$LOG"
+      sent_scopes="$(jq -c '.scopes' "$scopes_json")"
+      sent_all="$(jq -c '.all_scopes // false' "$scopes_json")"
     fi
+    if scopes_file="$(mergify_cli_value "$parsed" scopes-file)"; then
+      if [[ ! -r "$scopes_file" ]]; then
+        printf 'cannot read %s\n' "$scopes_file" >&2
+        exit 1
+      fi
+      sent_scopes="$(jq -c --argjson prev "$sent_scopes" -R -s \
+        '$prev + (split("\n") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))' \
+        "$scopes_file")"
+    fi
+    if mergify_cli_value "$parsed" all >/dev/null; then
+      sent_all=true
+    fi
+    printf 'sent=%s\n' "$(jq -c -n --argjson s "$sent_scopes" --argjson a "$sent_all" '{scopes: $s, all_scopes: $a}')" >> "$LOG"
     echo "MERGIFY_API_URL=${MERGIFY_API_URL:-}" >> "$LOG"
     echo "Scopes sent successfully"
     exit 0
