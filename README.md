@@ -94,6 +94,49 @@ steps:
           action: scopes
 ```
 
+#### Adding scopes to the detected ones
+
+When something outside the configuration file filters knows more scopes (e.g.
+your build tool), pass them to `action: scopes` with `scopes`. The step sends
+one report with the scopes detected from the changed files plus these:
+
+```yaml
+steps:
+  - label: "Detect scopes"
+    plugins:
+      - mergifyio/mergify-ci#v10:
+          action: scopes
+          scopes: "lib-a,lib-b"
+```
+
+Send them this way rather than from a second step: each report replaces the
+previous one for the same commit, so a `scopes` step followed by a
+`scopes-upload` step keeps only the uploaded scopes. Plugin config is fixed
+when the pipeline is uploaded, so when a command computes the scopes, have it
+upload this step with
+[`buildkite-agent pipeline upload`](https://buildkite.com/docs/pipelines/defining-steps#dynamic-pipelines).
+
+The `mergify-ci.scopes` meta-data keeps the detected scopes only.
+
+#### Declaring that a pull request impacts all scopes
+
+Some pull requests impact everything, typically a build-system or CI
+configuration change where listing every impacted scope is brittle. Set
+`all_scopes: true` to say so. The merge queue then treats the pull request as a
+barrier: it conflicts with every scope, so it is never batched or merged in
+parallel with other pull requests. The concrete scopes are still sent with the
+flag. `all_scopes` works with both `scopes` and `scopes-upload`, and
+`scopes-upload` needs no concrete scope when it is set.
+
+```yaml
+steps:
+  - label: "Detect scopes"
+    plugins:
+      - mergifyio/mergify-ci#v10:
+          action: scopes
+          all_scopes: true
+```
+
 ### `scopes-git-refs`
 
 Return the merge-queue-aware base and head SHAs. Results are stored as Buildkite meta-data (`mergify-ci.base`, `mergify-ci.head`) for use by subsequent steps.
@@ -232,7 +275,8 @@ Authentication is not one of these properties: the token comes from
 | `action` | yes | — | `junit-process`, `scopes`, `scopes-git-refs`, or `scopes-upload` |
 | `token` | no | — | Mergify token taken from plugin config. Plugin config is stored with the pipeline, so only set this to a value that is not a secret, such as a mock token. Setting it warns on every build, and a value starting with `$` is rejected. See [Authentication](#authentication) |
 | `report_path` | for junit-process | — | Glob path to JUnit XML files |
-| `scopes` | no | — | Comma-separated list of scopes. If not set, `scopes-upload` reads from `mergify-ci.scopes` meta-data |
+| `scopes` | no | — | Comma-separated list of scopes. With `scopes`, they are added to the scopes detected from the changed files and sent in the same report. With `scopes-upload`, they are the scopes sent; if not set, `scopes-upload` reads from `mergify-ci.scopes` meta-data |
+| `all_scopes` | no | `false` | With `scopes` or `scopes-upload`, declare that the pull request impacts all scopes, see [Declaring that a pull request impacts all scopes](#declaring-that-a-pull-request-impacts-all-scopes) |
 | `mergify_api_url` | no | `MERGIFY_API_URL` from the environment, else `https://api.mergify.com` | Mergify API endpoint |
 | `job_name` | no | Step label | Override job name (useful for matrix builds) |
 | `mergify_config_path` | no | — | Path to `.mergify.yml` configuration file |

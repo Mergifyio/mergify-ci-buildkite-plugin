@@ -21,6 +21,8 @@ configuration:
       type: string
     scopes:
       type: string
+    all_scopes:
+      type: boolean
     mergify_api_url:
       type: string
     job_name:
