@@ -44,6 +44,61 @@ setup() {
   grep -Fx -- "MERGIFY_API_URL=https://api.mergify.com" "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
+@test "scopes: sends the extra scopes in the detection's report" {
+  stub_mergify_scopes "abc123" "def456" '{"backend": "true"}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+  # Blank entries and spaces around names are dropped; an option-shaped name
+  # is a scope, not a flag.
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES=" lib-a, ,lib-b,-e "
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  [ "$(grep -c '^scopes-send ' "${BATS_TEST_TMPDIR}/mergify.log")" -eq 1 ]
+  grep -Fx -- 'sent={"scopes":["backend","lib-a","lib-b","-e"],"all_scopes":false}' "${BATS_TEST_TMPDIR}/mergify.log"
+  # The meta-data keeps the detection alone.
+  [ "$(cat "${BATS_TEST_TMPDIR}/metadata/mergify-ci.scopes")" = '{"backend": "true"}' ]
+}
+
+@test "scopes: sends the detection alone without extra scopes" {
+  stub_mergify_scopes "abc123" "def456" '{"backend": "true"}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- "scopes-send --scopes-json /tmp/mergify-scopes.json" "${BATS_TEST_TMPDIR}/mergify.log"
+  grep -Fx -- 'sent={"scopes":["backend"],"all_scopes":false}' "${BATS_TEST_TMPDIR}/mergify.log"
+}
+
+@test "scopes: all_scopes flags the detection's report with the extra scopes" {
+  stub_mergify_scopes "abc123" "def456" '{"backend": "true"}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES="lib-a"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ALL_SCOPES="true"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  [ "$(grep -c '^scopes-send ' "${BATS_TEST_TMPDIR}/mergify.log")" -eq 1 ]
+  grep -Fx -- 'sent={"scopes":["backend","lib-a"],"all_scopes":true}' "${BATS_TEST_TMPDIR}/mergify.log"
+}
+
+@test "scopes: all_scopes false sends no flag" {
+  stub_mergify_scopes "abc123" "def456" '{"backend": "true"}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ALL_SCOPES="false"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- "scopes-send --scopes-json /tmp/mergify-scopes.json" "${BATS_TEST_TMPDIR}/mergify.log"
+}
+
 @test "scopes: falls back to MERGIFY_API_URL env var when mergify_api_url config is unset" {
   stub_mergify_scopes "abc123" "def456" '{"backend": "true"}'
   export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
@@ -147,6 +202,40 @@ setup() {
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Mergify token is not set"* ]]
+}
+
+@test "scopes-upload: all_scopes flags the report" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+
+  stub_mergify_scopes "abc123" "def456" '{}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES="backend"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ALL_SCOPES="true"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- "scopes-send --scopes-json /tmp/mergify-scopes.json --all" "${BATS_TEST_TMPDIR}/mergify.log"
+  grep -Fx -- 'sent={"scopes":["backend"],"all_scopes":true}' "${BATS_TEST_TMPDIR}/mergify.log"
+}
+
+@test "scopes-upload: all_scopes needs no concrete scope" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+
+  stub_mergify_scopes "abc123" "def456" '{}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ALL_SCOPES="true"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- 'sent={"scopes":[],"all_scopes":true}' "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
 @test "scopes-upload: fails when no scopes in config or meta-data" {
