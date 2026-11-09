@@ -104,7 +104,7 @@ one report with the scopes detected from the changed files plus these:
 steps:
   - label: "Detect scopes"
     plugins:
-      - mergifyio/mergify-ci#v10:
+      - mergifyio/mergify-ci#v12:
           action: scopes
           scopes: "lib-a,lib-b"
 ```
@@ -132,7 +132,7 @@ flag. `all_scopes` works with both `scopes` and `scopes-upload`, and
 steps:
   - label: "Detect scopes"
     plugins:
-      - mergifyio/mergify-ci#v10:
+      - mergifyio/mergify-ci#v12:
           action: scopes
           all_scopes: true
 ```
