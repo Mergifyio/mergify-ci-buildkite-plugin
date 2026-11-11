@@ -16,7 +16,7 @@ log_info "Installing mergify-cli..."
 # build. Renovate keeps this pinned current, and a change to it on main cuts the
 # next plugin release (.github/workflows/release.yaml reads this assignment).
 # renovate: datasource=github-releases depName=Mergifyio/mergify-cli versioning=pep440
-DEFAULT_MERGIFY_CLI_VERSION="2026.11.5"
+DEFAULT_MERGIFY_CLI_VERSION="2026.11.6"
 
 # Resolve the requested release. An explicit "latest" installs the newest
 # release; anything else (including the default above) pins that exact tag.
