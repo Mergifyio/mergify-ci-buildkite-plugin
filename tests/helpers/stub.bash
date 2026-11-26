@@ -2,6 +2,17 @@
 
 _STUB_HELPERS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# PLUGIN_BASH runs the hooks under test, which every test starts with
+# `bash hooks/...`, on another bash than bats itself. CI points it at bash 3.2,
+# the macOS system bash, while bats stays on bash 5: before bash 4.1 errexit
+# ignores a failing `[[ ]]`, so on 3.2 every `[[ ]]` assertion but a test's
+# last would pass whatever the output.
+if [[ -n "${PLUGIN_BASH:-}" ]]; then
+  mkdir -p "${BATS_TEST_TMPDIR}/stubs"
+  ln -sf "$PLUGIN_BASH" "${BATS_TEST_TMPDIR}/stubs/bash"
+  export PATH="${BATS_TEST_TMPDIR}/stubs:${PATH}"
+fi
+
 # Create a stub command that records its invocations and returns a canned response.
 # Usage: stub_command <name> <exit_code> [stdout_output]
 stub_command() {
@@ -65,7 +76,12 @@ echo "$@" >> "$LOG"
 if [[ "$1" == "meta-data" && "$2" == "set" ]]; then
   echo "$4" > "${METADATA_DIR}/$3"
 elif [[ "$1" == "meta-data" && "$2" == "get" ]]; then
-  cat "${METADATA_DIR}/$3" 2>/dev/null
+  # Like the agent: a missing key fails, unless --default says what to print.
+  if [[ "$3" == "--default" ]]; then
+    cat "${METADATA_DIR}/$5" 2>/dev/null || printf '%s' "$4"
+  else
+    cat "${METADATA_DIR}/$3" 2>/dev/null
+  fi
 elif [[ "$1" == "annotate" ]]; then
   echo "$2" > "${METADATA_DIR}/annotation"
 fi

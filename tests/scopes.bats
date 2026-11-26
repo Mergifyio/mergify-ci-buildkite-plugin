@@ -288,3 +288,68 @@ setup() {
   [[ "$output" == *'"-e"'* ]]
   grep -Fx -- 'scopes-json={"base_ref":"abc123","head_ref":"def456","scopes":["-e"]}' "${BATS_TEST_TMPDIR}/mergify.log"
 }
+
+@test "scopes-upload: names the step that sets the git refs when they are missing" {
+  # No scopes-git-refs step ran, or this step does not depend on it: no
+  # mergify-ci.base or mergify-ci.head in meta-data.
+  stub_mergify_scopes "abc123" "def456" '{}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES="backend"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  run bash hooks/command
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"+++ :x: No git refs found in meta-data"* ]]
+  [[ "$output" == *"'scopes-git-refs'"* ]]
+  [ ! -f "${BATS_TEST_TMPDIR}/mergify.log" ]
+}
+
+@test "scopes-upload: rejects any property that is an unexpanded variable" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+
+  stub_mergify_scopes "abc123" "def456" '{}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES="backend"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  # all_scopes is read inside an `if`, where errexit does not apply.
+  local property
+  for property in mergify_config_path scopes all_scopes mergify_api_url; do
+    run env "BUILDKITE_PLUGIN_MERGIFY_CI_$(tr '[:lower:]' '[:upper:]' <<<"$property")=\$SOME_VAR" \
+      bash hooks/command
+
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Plugin config '${property}' is an unexpanded variable reference"* ]]
+  done
+  [ ! -f "${BATS_TEST_TMPDIR}/mergify.log" ]
+}
+
+@test "command: rejects an action that is an unexpanded variable" {
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION='$ACTION'
+
+  run bash hooks/command
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Plugin config 'action' is an unexpanded variable reference"* ]]
+  [[ "$output" != *"Missing required config"* ]]
+}
+
+@test "scopes-upload: drops the trailing newline of a block scalar property" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+
+  stub_mergify_scopes "abc123" "def456" '{}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  # `scopes: |` keeps the newline that ends the block.
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES=$'backend,frontend\n'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- 'scopes-json={"base_ref":"abc123","head_ref":"def456","scopes":["backend","frontend"]}' "${BATS_TEST_TMPDIR}/mergify.log"
+}

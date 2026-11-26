@@ -270,6 +270,11 @@ steps:
 Authentication is not one of these properties: the token comes from
 `MERGIFY_TOKEN` in the agent environment, see [Authentication](#authentication).
 
+A string property starting with `$` fails the step that reads it. That is
+`$$NAME` in `pipeline.yml`: Buildkite turns it into the literal `$NAME` at
+upload and expands nothing in plugin config when the job runs. Write the value
+itself, or `${NAME}` to interpolate it at upload.
+
 | Property | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `action` | yes | — | `junit-process`, `scopes`, `scopes-git-refs`, or `scopes-upload` |
@@ -303,6 +308,7 @@ The `mergify-cli` writes Buildkite annotations (context: `mergify-ci-scopes`) sh
 and checksum-verified by the upstream [`install.sh`](https://github.com/Mergifyio/mergify-cli/blob/main/install.sh).
 Supported platforms: Linux (x86_64, aarch64) and macOS (x86_64, aarch64).
 
+- `bash` 3.2 or later, so the system bash of macOS agents works
 - `curl` (to download the installer and the binary)
 - `tar` (to extract the binary)
 - `sha256sum` or `shasum` (to verify the binary checksum)
@@ -318,6 +324,13 @@ exit 127.
 
 ```bash
 bats tests/
+```
+
+To run the hooks on bash 3.2, the macOS system bash, the way CI does:
+
+```bash
+docker run --rm -v "$PWD:/plugin:ro" -w /plugin bash:3.2 sh -c \
+  'apk add --no-cache bats jq && PATH="/bin:$PATH" PLUGIN_BASH=/usr/local/bin/bash bats tests/'
 ```
 
 CI runs them in GitHub Actions (`.github/workflows/ci.yaml`), which reports the

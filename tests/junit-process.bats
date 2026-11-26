@@ -148,6 +148,26 @@ setup() {
   run bash hooks/post-command
 
   [ "$status" -ne 0 ]
+  # The message itself, not just the status: a bash 4 construct on this path
+  # dies with "bad substitution" on bash 3.2, before printing it, and still
+  # exits non-zero. `+++` opens the group, so the reason is not folded away.
+  [[ "$output" == *"+++ :x: Missing required config: report_path"* ]]
+  [ ! -f "${BATS_TEST_TMPDIR}/mergify.log" ]
+}
+
+@test "junit-process: fails when report_path is only whitespace" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH=$' \t '
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  run bash hooks/post-command
+
+  # It splits into no path at all: `junit-process --` with nothing to upload
+  # on bash 5, an unbound "${report_paths[@]}" on bash 3.2.
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Missing required config: report_path"* ]]
+  [ ! -f "${BATS_TEST_TMPDIR}/mergify.log" ]
 }
 
 @test "post-command: no-op for scopes action" {
@@ -196,6 +216,10 @@ setup() {
 
   [ "$status" -ne 0 ]
   [[ "$output" == *"unexpanded variable reference"* ]]
+  # Not the hint every other property gets: `${MERGIFY_TOKEN}` interpolated
+  # at upload would bake the secret into the stored pipeline.
+  [[ "$output" == *"Export MERGIFY_TOKEN"* ]]
+  [[ "$output" != *"interpolated when the pipeline is uploaded"* ]]
   [ ! -f "${BATS_TEST_TMPDIR}/mergify.log" ]
 }
 
@@ -237,4 +261,54 @@ setup() {
 
   [ "$status" -ne 0 ]
   [[ "$output" != *"notarealsecretbutshaped"* ]]
+}
+
+@test "junit-process: rejects any property that is an unexpanded variable" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
+  export MERGIFY_TOKEN="env-token"
+
+  # What `<property>: "$$NAME"` reaches the plugin as. Each would otherwise
+  # fail far from its cause: a pattern matching no file, a URL nothing
+  # answers, a job name nobody chose.
+  local property
+  for property in report_path mergify_api_url job_name; do
+    run env "BUILDKITE_PLUGIN_MERGIFY_CI_$(tr '[:lower:]' '[:upper:]' <<<"$property")=\$SOME_VAR" \
+      bash hooks/post-command
+
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"+++ :x: Plugin config '${property}' is an unexpanded variable reference"* ]]
+  done
+  [ ! -f "${BATS_TEST_TMPDIR}/mergify.log" ]
+}
+
+@test "junit-process: reads every line of report_path" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  # A YAML block scalar: a blank first line used to split into no path at
+  # all, and every line after the first was dropped.
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH=$'\nreports/*.xml\nother/*.xml\n'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  run bash hooks/post-command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- "junit-process -- reports/*.xml other/*.xml" "${BATS_TEST_TMPDIR}/mergify.log"
+}
+
+@test "junit-process: sends a token without its trailing newline" {
+  stub_mergify_junit 0
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="junit-process"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_REPORT_PATH="reports/*.xml"
+  # What a secret read from a file usually looks like.
+  export MERGIFY_TOKEN=$'env-token\n'
+
+  run bash hooks/post-command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- "MERGIFY_TOKEN=env-token" "${BATS_TEST_TMPDIR}/mergify.log"
+  # A token still ending in a newline would leave an empty line after it.
+  run grep -cx -- "" "${BATS_TEST_TMPDIR}/mergify.log"
+  [ "$output" = "0" ]
 }

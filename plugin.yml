@@ -6,6 +6,13 @@ requirements:
   - tar
   - bash
   - jq
+# The string properties refuse a value starting with `$`: that is a variable
+# reference Buildkite did not expand (`$$NAME` in pipeline.yml), never a value
+# any of them takes. Empty stays allowed. Agents check this schema only with
+# plugin validation turned on (`--no-plugin-validation=false`), so lib/shared.sh
+# refuses the same values at run time on every other agent. Not `token`: a
+# failed validation stops the job before checkout, and the token is only ever
+# refused in the hook that uses it (see warn_token_config).
 configuration:
   properties:
     action:
@@ -19,18 +26,24 @@ configuration:
       type: string
     report_path:
       type: string
+      pattern: &expanded "^([^$]|$)"
     scopes:
       type: string
+      pattern: *expanded
     all_scopes:
       type: boolean
     mergify_api_url:
       type: string
+      pattern: *expanded
     job_name:
       type: string
+      pattern: *expanded
     mergify_config_path:
       type: string
+      pattern: *expanded
     mergify_cli_version:
       type: string
+      pattern: *expanded
   required:
     - action
   additionalProperties: false

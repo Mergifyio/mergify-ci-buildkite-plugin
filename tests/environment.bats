@@ -97,3 +97,13 @@ STUB
 
   [ "$status" -eq 0 ]
 }
+
+@test "environment: rejects a mergify_cli_version that is an unexpanded variable" {
+  export BUILDKITE_PLUGIN_MERGIFY_CI_MERGIFY_CLI_VERSION='$CLI_VERSION'
+
+  run bash hooks/environment
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Plugin config 'mergify_cli_version' is an unexpanded variable reference"* ]]
+  [ ! -f "${BATS_TEST_TMPDIR}/curl.log" ]
+}

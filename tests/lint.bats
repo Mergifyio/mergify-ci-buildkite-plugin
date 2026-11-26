@@ -6,7 +6,7 @@
 # it, and it only shows up as a property that looks unset. Use
 # `printf '%s\n' "$value"` to emit a value, and a here-string to feed one to
 # stdin. Only a literal prefix makes `echo` safe, which is why the log_* helpers
-# interpolate after their fixed `~~~ :x: ` and log_detail uses printf.
+# interpolate after their fixed group header and log_detail uses printf.
 @test "lint: no value is emitted through echo" {
   cd "${BATS_TEST_DIRNAME}/.."
 
