@@ -109,6 +109,23 @@ steps:
           scopes: "lib-a,lib-b"
 ```
 
+Mergify adds them only if your configuration declares `manual: null` beside
+`files` in `scopes.source`:
+
+```yaml
+scopes:
+  source:
+    files:
+      frontend:
+        include:
+          - apps/web/**/*
+    manual: null
+```
+
+The merge queue then waits for the report of each pull request it queues, so
+run the step on every pull request, even with nothing to add. With `files`
+alone, Mergify ignores the scopes you send and uses the file filters only.
+
 Send them this way rather than from a second step: each report replaces the
 previous one for the same commit, so a `scopes` step followed by a
 `scopes-upload` step keeps only the uploaded scopes. Plugin config is fixed
@@ -126,7 +143,10 @@ configuration change where listing every impacted scope is brittle. Set
 barrier: it conflicts with every scope, so it is never batched or merged in
 parallel with other pull requests. The concrete scopes are still sent with the
 flag. `all_scopes` works with both `scopes` and `scopes-upload`, and
-`scopes-upload` needs no concrete scope when it is set.
+`scopes-upload` needs no concrete scope when it is set. With `action: scopes`,
+it counts only if `scopes.source` declares `manual: null` beside `files`, as
+for [extra scopes](#adding-scopes-to-the-detected-ones); with `files` alone,
+list the files that impact every scope in `scopes.barrier_files` instead.
 
 ```yaml
 steps:
@@ -280,8 +300,8 @@ itself, or `${NAME}` to interpolate it at upload.
 | `action` | yes | — | `junit-process`, `scopes`, `scopes-git-refs`, or `scopes-upload` |
 | `token` | no | — | Mergify token taken from plugin config. Plugin config is stored with the pipeline, so only set this to a value that is not a secret, such as a mock token. Setting it warns on every build, and a value starting with `$` is rejected. See [Authentication](#authentication) |
 | `report_path` | for junit-process | — | Glob path to JUnit XML files |
-| `scopes` | no | — | Comma-separated list of scopes. With `scopes`, they are added to the scopes detected from the changed files and sent in the same report. With `scopes-upload`, they are the scopes sent; if not set, `scopes-upload` reads from `mergify-ci.scopes` meta-data |
-| `all_scopes` | no | `false` | With `scopes` or `scopes-upload`, declare that the pull request impacts all scopes, see [Declaring that a pull request impacts all scopes](#declaring-that-a-pull-request-impacts-all-scopes) |
+| `scopes` | no | — | Comma-separated list of scopes. With `scopes`, they are added to the scopes detected from the changed files and sent in the same report. Mergify adds them only if `scopes.source` declares `manual: null` beside `files`, and the merge queue then waits for the report of each pull request it queues. With `files` alone, Mergify ignores them and uses the file filters only. With `scopes-upload`, they are the scopes sent; if not set, `scopes-upload` reads from `mergify-ci.scopes` meta-data |
+| `all_scopes` | no | `false` | With `scopes` or `scopes-upload`, declare that the pull request impacts all scopes. With `action: scopes`, it counts only if `scopes.source` declares `manual: null` beside `files`, as for the `scopes` option; with `files` alone, list the files that impact every scope in `barrier_files` instead. See [Declaring that a pull request impacts all scopes](#declaring-that-a-pull-request-impacts-all-scopes) |
 | `mergify_api_url` | no | `MERGIFY_API_URL` from the environment, else `https://api.mergify.com` | Mergify API endpoint |
 | `job_name` | no | Step label | Override job name (useful for matrix builds) |
 | `mergify_config_path` | no | — | Path to `.mergify.yml` configuration file |
