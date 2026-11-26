@@ -161,6 +161,8 @@ steps:
 
 Return the merge-queue-aware base and head SHAs. Results are stored as Buildkite meta-data (`mergify-ci.base`, `mergify-ci.head`) for use by subsequent steps.
 
+The base is the one scope detection compares from, for a build tool that computes the scopes itself (`nx affected`, Bazel, Pants, Turborepo). On a merge queue batch built on other batches, that is the top of those batches, so a diff from it holds the batch's own pull requests.
+
 ```yaml
 steps:
   - label: "Get git refs"
@@ -194,13 +196,21 @@ steps:
 ```yaml
 # Option 2: scopes from meta-data (set by a prior step)
 steps:
+  - label: "Get git refs"
+    key: git-refs
+    plugins:
+      - mergifyio/mergify-ci#v22:
+          action: scopes-git-refs
+
   - label: "Generate scopes"
     key: generate-scopes
     command: |
       buildkite-agent meta-data set "mergify-ci.scopes" "backend,frontend"
 
   - label: "Upload scopes"
-    depends_on: generate-scopes
+    depends_on:
+      - git-refs
+      - generate-scopes
     plugins:
       - mergifyio/mergify-ci#v22:
           action: scopes-upload
@@ -313,9 +323,9 @@ The plugin stores the following values via `buildkite-agent meta-data`:
 
 | Key | Set by | Description |
 |-----|--------|-------------|
-| `mergify-ci.base` | `scopes`, `scopes-git-refs` | Merge-queue-aware base SHA |
-| `mergify-ci.head` | `scopes`, `scopes-git-refs` | Merge-queue-aware head SHA |
-| `mergify-ci.source` | `scopes`, `scopes-git-refs` | Reference source (e.g. `buildkite_pull_request`, `merge_queue`) |
+| `mergify-ci.base` | `scopes-git-refs` | Merge-queue-aware base SHA |
+| `mergify-ci.head` | `scopes-git-refs` | Merge-queue-aware head SHA |
+| `mergify-ci.source` | `scopes-git-refs` | Reference source (e.g. `buildkite_pull_request`, `merge_queue`) |
 | `mergify-ci.scopes` | `scopes` | JSON mapping of scope names to "true"/"false" |
 
 ## Annotations

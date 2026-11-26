@@ -15,11 +15,18 @@
 # table is what has to follow, and every call site still using the old name
 # then goes red.
 
+# `git-refs --for-scopes` came with mergify-cli 2026.11.20: a stub stands for an
+# older CLI, which refuses it, unless it sets MERGIFY_CLI_FOR_SCOPES=true.
+
 # Prints "value <name>" or "flag <name>" for an option <subcommand> accepts,
 # <name> being the long spelling without dashes. Fails for anything else.
 _mergify_cli_option() {
   case "$1 $2" in
     "git-refs --format") printf 'value format\n' ;;
+    "git-refs --for-scopes")
+      [[ "${MERGIFY_CLI_FOR_SCOPES:-}" == true ]] || return 1
+      printf 'flag for-scopes\n'
+      ;;
 
     "scopes --config") printf 'value config\n' ;;
     "scopes --base") printf 'value base\n' ;;
@@ -46,6 +53,22 @@ _mergify_cli_option() {
 
     *) return 1 ;;
   esac
+}
+
+# Usage: mergify_cli_help <subcommand>
+# Prints the options `mergify ci <subcommand> --help` lists, for git-refs alone:
+# the plugin reads that help to find out whether the CLI has --for-scopes.
+mergify_cli_help() {
+  if [[ "$1" != "git-refs" ]]; then
+    printf 'no help stubbed for %s\n' "$1" >&2
+    return 1
+  fi
+  printf 'Usage: mergify ci git-refs [OPTIONS]\n\nOptions:\n'
+  printf '      --format <FORMAT>\n'
+  if [[ "${MERGIFY_CLI_FOR_SCOPES:-}" == true ]]; then
+    printf '      --for-scopes\n'
+  fi
+  printf '  -h, --help\n'
 }
 
 # Usage: mergify_cli_parse <subcommand> [args...]
