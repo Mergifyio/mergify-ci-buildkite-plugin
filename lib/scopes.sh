@@ -7,14 +7,16 @@ source "${DIR}/shared.sh"
 
 # Succeeds when the step declares that the pull request impacts every scope.
 all_scopes_requested() {
-  [[ "$(plugin_config ALL_SCOPES "false")" == "true" ]]
+  local all_scopes
+  plugin_config all_scopes ALL_SCOPES "false"
+  [[ "$all_scopes" == "true" ]]
 }
 
 run_scopes_git_refs() {
   log_info "Detecting git refs..."
 
   local config_path
-  config_path="$(plugin_config MERGIFY_CONFIG_PATH "")"
+  plugin_config config_path MERGIFY_CONFIG_PATH ""
   if [[ -n "$config_path" ]]; then
     export MERGIFY_CONFIG_PATH="$config_path"
   fi
@@ -26,7 +28,7 @@ run_scopes() {
   log_info "Detecting scopes..."
 
   local config_path
-  config_path="$(plugin_config MERGIFY_CONFIG_PATH "")"
+  plugin_config config_path MERGIFY_CONFIG_PATH ""
   if [[ -n "$config_path" ]]; then
     export MERGIFY_CONFIG_PATH="$config_path"
   fi
@@ -41,7 +43,7 @@ run_scopes() {
   fi
 
   local token
-  token="$(resolve_token)" || exit 1
+  resolve_token token
   if [[ -z "$token" ]]; then
     log_warning "Mergify token is not set, scopes will not be sent to Mergify API"
     return 0
@@ -53,7 +55,7 @@ run_scopes() {
   # scopes go in the detection's report rather than in one of their own. The
   # CLI trims each line and skips the empty ones.
   local extra_scopes
-  extra_scopes="$(plugin_config SCOPES "")"
+  plugin_config extra_scopes SCOPES ""
   if [[ -n "$extra_scopes" ]]; then
     local extra_scopes_file="/tmp/mergify-extra-scopes.txt"
     printf '%s\n' "$extra_scopes" | tr ',' '\n' > "$extra_scopes_file"
@@ -66,7 +68,7 @@ run_scopes() {
 
   export MERGIFY_TOKEN="$token"
   export MERGIFY_API_URL
-  MERGIFY_API_URL="$(resolve_api_url)"
+  resolve_api_url MERGIFY_API_URL
   mergify ci scopes-send "${args[@]}"
 }
 
@@ -79,19 +81,27 @@ run_scopes_upload() {
   log_info "Uploading scopes..."
 
   local config_path
-  config_path="$(plugin_config MERGIFY_CONFIG_PATH "")"
+  plugin_config config_path MERGIFY_CONFIG_PATH ""
   if [[ -n "$config_path" ]]; then
     export MERGIFY_CONFIG_PATH="$config_path"
   fi
 
-  # Read refs from meta-data (set by a previous scopes-git-refs step)
+  # Read refs from meta-data, set by a scopes-git-refs or scopes step this one
+  # depends on. `--default ''` turns a missing key into the error below, which
+  # names that step. Any other failure still stops the hook on the agent's
+  # own message, which is then the actual cause.
   local base head
-  base="$(buildkite-agent meta-data get "mergify-ci.base")"
-  head="$(buildkite-agent meta-data get "mergify-ci.head")"
+  base="$(buildkite-agent meta-data get --default '' "mergify-ci.base")"
+  head="$(buildkite-agent meta-data get --default '' "mergify-ci.head")"
+  if [[ -z "$base" || -z "$head" ]]; then
+    log_error "No git refs found in meta-data: run a 'scopes-git-refs' step first and add its key to this step's 'depends_on'"
+    log_detail "'scopes-upload' reads mergify-ci.base and mergify-ci.head, which a 'scopes-git-refs' or 'scopes' step sets."
+    exit 1
+  fi
 
   # Read scopes from plugin config or meta-data
   local scopes_raw scopes_json
-  scopes_raw="$(plugin_config SCOPES "")"
+  plugin_config scopes_raw SCOPES ""
   if [[ -z "$scopes_raw" ]]; then
     scopes_raw="$(buildkite-agent meta-data get "mergify-ci.scopes" 2>/dev/null || true)"
   fi
@@ -126,7 +136,7 @@ run_scopes_upload() {
 
   # Upload to Mergify API if token is set
   local token
-  token="$(resolve_token)" || exit 1
+  resolve_token token
   if [[ -z "$token" ]]; then
     log_warning "Mergify token is not set, scopes will not be sent to Mergify API"
   else
@@ -136,7 +146,7 @@ run_scopes_upload() {
     fi
     export MERGIFY_TOKEN="$token"
     export MERGIFY_API_URL
-    MERGIFY_API_URL="$(resolve_api_url)"
+    resolve_api_url MERGIFY_API_URL
     mergify ci scopes-send "${args[@]}"
   fi
 }

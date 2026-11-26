@@ -39,6 +39,27 @@ jobs:
       - name: Run bats
         run: bats --print-output-on-failure tests/
 
+  # macOS agents run the hooks with the system bash, 3.2, where the job above
+  # cannot look: `${1,,}` and an empty "${array[@]}" under `set -u` both work
+  # on bash 5 and both die on 3.2. The official image has bash 3.2 at
+  # /usr/local/bin, and the bats package pulls bash 5 in as /bin/bash. bats
+  # runs on that one and PLUGIN_BASH runs the hooks on 3.2; why is in
+  # tests/helpers/stub.bash.
+  bats-bash-3:
+    timeout-minutes: 5
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Run bats with the hooks on bash 3.2
+        run: |
+          docker run --rm -v "$PWD:/plugin:ro" -w /plugin \
+            bash:3.2@sha256:2556c2da19c32c1614d318645c73a7bf64d38be21cf69e98e3ca51f053983719 \
+            sh -ec '
+              apk add --no-cache bats jq || apk add --no-cache bats jq
+              PATH="/bin:$PATH" PLUGIN_BASH=/usr/local/bin/bash bats --print-output-on-failure tests/
+            '
+
   # Stable check name for .mergify.yml's `check-success=ci-gate`, so the merge
   # protection never has to change. Any job added above MUST be listed in
   # `needs:` below, or the gate goes green while that job is red.
@@ -46,6 +67,7 @@ jobs:
     if: ${{ !cancelled() }}
     needs:
       - bats
+      - bats-bash-3
     timeout-minutes: 5
     runs-on: ubuntu-26.04
     steps:
