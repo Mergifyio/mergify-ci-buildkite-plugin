@@ -12,6 +12,15 @@ all_scopes_requested() {
   [[ "$all_scopes" == "true" ]]
 }
 
+# Succeeds when the installed mergify-cli has `ci git-refs --for-scopes`, which
+# 2026.11.20 added: an older one refuses the flag. Only an option line counts,
+# as the help's description mentions the flag too.
+git_refs_has_for_scopes() {
+  local help
+  help="$(mergify ci git-refs --help)" || return 1
+  grep -qE -- '^[[:space:]]*(-[[:alnum:]], )?--for-scopes([[:space:]]|$)' <<<"$help"
+}
+
 run_scopes_git_refs() {
   log_info "Detecting git refs..."
 
@@ -21,7 +30,16 @@ run_scopes_git_refs() {
     export MERGIFY_CONFIG_PATH="$config_path"
   fi
 
-  mergify ci git-refs
+  # On a merge queue batch built on other batches, mergify-cli 2026.11.20 and
+  # later give the base branch commit below all of them as the base, so a diff
+  # also holds the pull requests of those batches. --for-scopes keeps the top of
+  # those batches, the base the batch's scopes are detected from and the only
+  # one an older CLI gives.
+  if git_refs_has_for_scopes; then
+    mergify ci git-refs --for-scopes
+  else
+    mergify ci git-refs
+  fi
 }
 
 run_scopes() {
@@ -86,8 +104,8 @@ run_scopes_upload() {
     export MERGIFY_CONFIG_PATH="$config_path"
   fi
 
-  # Read refs from meta-data, set by a scopes-git-refs or scopes step this one
-  # depends on. `--default ''` turns a missing key into the error below, which
+  # Read refs from meta-data, set by a scopes-git-refs step this one depends
+  # on. `--default ''` turns a missing key into the error below, which
   # names that step. Any other failure still stops the hook on the agent's
   # own message, which is then the actual cause.
   local base head
@@ -95,7 +113,7 @@ run_scopes_upload() {
   head="$(buildkite-agent meta-data get --default '' "mergify-ci.head")"
   if [[ -z "$base" || -z "$head" ]]; then
     log_error "No git refs found in meta-data: run a 'scopes-git-refs' step first and add its key to this step's 'depends_on'"
-    log_detail "'scopes-upload' reads mergify-ci.base and mergify-ci.head, which a 'scopes-git-refs' or 'scopes' step sets."
+    log_detail "'scopes-upload' reads mergify-ci.base and mergify-ci.head, which a 'scopes-git-refs' step sets."
     exit 1
   fi
 

@@ -49,6 +49,35 @@ setup() {
   [[ "$output" == *"a value is required for '--write'"* ]]
 }
 
+@test "stub: git-refs before 2026.11.20 refuses --for-scopes and does not list it" {
+  stub_mergify_git_refs "abc123" "def456"
+
+  run mergify ci git-refs --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--format"* ]]
+  [[ "$output" != *"--for-scopes"* ]]
+
+  run mergify ci git-refs --for-scopes
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"unexpected argument '--for-scopes'"* ]]
+}
+
+@test "stub: git-refs from 2026.11.20 lists --for-scopes and gives the scopes base with it" {
+  stub_mergify_git_refs "queue0base" "def456" "abc123"
+
+  run mergify ci git-refs --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--for-scopes"* ]]
+
+  run mergify ci git-refs
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Base: queue0base"* ]]
+
+  run mergify ci git-refs --for-scopes
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Base: abc123"* ]]
+}
+
 @test "stub: git-refs refuses a positional argument" {
   stub_mergify_git_refs "abc123" "def456"
 

@@ -121,6 +121,10 @@ if [[ "${1:-}" != "ci" || $# -lt 2 ]]; then
 fi
 subcommand="$2"
 shift 2
+if [[ "$*" == "--help" ]]; then
+  mergify_cli_help "$subcommand"
+  exit
+fi
 parsed="$(mergify_cli_parse "$subcommand" "$@")" || exit 2
 printf '%s\n' "${subcommand}${*:+ $*}" >> "$LOG"
 case "$subcommand" in
@@ -138,12 +142,23 @@ STUB
 
 # Create a mergify stub that mimics the real CLI: when BUILDKITE=true,
 # the CLI writes base/head/source directly to buildkite meta-data.
+# Usage: stub_mergify_git_refs <base> <head> [<scopes-base>]
+# Without <scopes-base>, it is a CLI before 2026.11.20, which has no
+# --for-scopes. With it, a later one, giving <base> as the base, as it does to
+# a merge queue batch built on other batches (the queue base), and
+# <scopes-base> with --for-scopes.
 stub_mergify_git_refs() {
   local vars
   vars="$(printf 'STUB_BASE=%q\nSTUB_HEAD=%q\n' "$1" "$2")"
+  if [[ $# -ge 3 ]]; then
+    vars+="$(printf '\nMERGIFY_CLI_FOR_SCOPES=true\nSTUB_SCOPES_BASE=%q\n' "$3")"
+  fi
 
   _stub_mergify "$vars" "$(cat <<'HANDLERS'
   git-refs)
+    if mergify_cli_value "$parsed" for-scopes >/dev/null; then
+      STUB_BASE="$STUB_SCOPES_BASE"
+    fi
     printf 'Base: %s\nHead: %s\n' "$STUB_BASE" "$STUB_HEAD"
     if [[ "${BUILDKITE:-}" == "true" ]]; then
       buildkite-agent meta-data set "mergify-ci.base" "$STUB_BASE"
@@ -157,9 +172,10 @@ HANDLERS
 }
 
 # Create a mergify stub for scopes action. Mimics the real CLI which,
-# when BUILDKITE=true, writes base/head/source/scopes meta-data and a
-# Buildkite annotation directly. `scopes-send` loads its --scopes-json file
-# the way the CLI does and logs it as `scopes-json=<compact json>`, then logs
+# when BUILDKITE=true, writes the scopes meta-data and a Buildkite annotation
+# directly, and leaves base/head/source to `git-refs`. `scopes-send` loads its
+# --scopes-json file the way the CLI does and logs it as
+# `scopes-json=<compact json>`, then logs
 # the one report the CLI would send as `sent=<compact json>`: the
 # --scopes-json scopes followed by the --scopes-file lines (trimmed, blanks
 # skipped), with `all_scopes` set by --all or by the JSON file. So a test can
@@ -174,9 +190,6 @@ stub_mergify_scopes() {
   scopes)
     printf 'Base: %s\nHead: %s\n' "$STUB_BASE" "$STUB_HEAD"
     if [[ "${BUILDKITE:-}" == "true" ]]; then
-      buildkite-agent meta-data set "mergify-ci.base" "$STUB_BASE"
-      buildkite-agent meta-data set "mergify-ci.head" "$STUB_HEAD"
-      buildkite-agent meta-data set "mergify-ci.source" "buildkite_pull_request"
       buildkite-agent meta-data set "mergify-ci.scopes" "$STUB_SCOPES"
       buildkite-agent annotate "stub-annotation" --style "info" --context "mergify-ci-scopes"
     fi
