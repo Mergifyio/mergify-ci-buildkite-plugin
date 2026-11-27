@@ -17,6 +17,22 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$(cat "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base")" = "abc123" ]
   [ "$(cat "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head")" = "def456" ]
+  # A CLI before 2026.11.20 has no --for-scopes and would refuse it.
+  [ "$(cat "${BATS_TEST_TMPDIR}/mergify.log")" = "git-refs" ]
+}
+
+@test "scopes-git-refs: keeps the base scopes are detected from with a CLI that has --for-scopes" {
+  # From 2026.11.20, git-refs gives a merge queue batch built on other batches
+  # the commit below all of them unless --for-scopes asks for the top of them.
+  stub_mergify_git_refs "queue0base" "def456" "abc123"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-git-refs"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  [ "$(cat "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base")" = "abc123" ]
+  [ "$(cat "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head")" = "def456" ]
+  [ "$(cat "${BATS_TEST_TMPDIR}/mergify.log")" = "git-refs --for-scopes" ]
 }
 
 @test "scopes: detects scopes and stores in meta-data" {
@@ -26,9 +42,9 @@ setup() {
   run bash hooks/command
 
   [ "$status" -eq 0 ]
-  [ "$(cat "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base")" = "abc123" ]
-  [ "$(cat "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head")" = "def456" ]
   [ "$(cat "${BATS_TEST_TMPDIR}/metadata/mergify-ci.scopes")" = '{"backend": "true", "frontend": "false"}' ]
+  # The CLI's `ci scopes` writes no git refs: a `scopes-git-refs` step does.
+  [ ! -f "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base" ]
 }
 
 @test "scopes: uploads when token is set" {
