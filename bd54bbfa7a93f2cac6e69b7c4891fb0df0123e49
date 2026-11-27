@@ -1,0 +1,6 @@
+Revision history for #73:
+
+rev 2 (content) 2026-11-27 10:21 UTC — make_work_dir falls back to /tmp when TMPDIR is unset, empty or not a directory, test added; reworded the test TMPDIR comment
+rev 1 (initial) 2026-11-27 10:21 UTC
+
+<!-- mergify-revision-data: {"schema_version":1,"pull_number":73,"entries":[{"number":1,"change_type":"initial","old_sha":null,"new_sha":"a0f86e51d2fa1a0b01592701f553e08db096e559","timestamp_iso":"2026-11-27T10:21:41Z","reason":"","replay_sha":null,"compare_url":null},{"number":2,"change_type":"content","old_sha":"a0f86e51d2fa1a0b01592701f553e08db096e559","new_sha":"bd8124bc55011b816b03f49a58bc96d1c83881e9","timestamp_iso":"2026-11-27T10:21:41Z","reason":"make_work_dir falls back to /tmp when TMPDIR is unset, empty or not a directory, test added; reworded the test TMPDIR comment","replay_sha":null,"compare_url":"https://github.com/Mergifyio/mergify-ci-buildkite-plugin/compare/a0f86e51d2fa1a0b01592701f553e08db096e559...bd8124bc55011b816b03f49a58bc96d1c83881e9"}]} -->
