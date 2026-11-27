@@ -180,7 +180,9 @@ HANDLERS
 # --scopes-json scopes followed by the --scopes-file lines (trimmed, blanks
 # skipped), with `all_scopes` set by --all or by the JSON file. So a test can
 # assert what would have been uploaded, and it logs MERGIFY_API_URL so a test
-# can assert where.
+# can assert where. With STUB_OTHER_JOB set, `scopes-send` first runs it with
+# `bash -c`, without STUB_OTHER_JOB: another job on the same host, from start
+# to end between the step writing its files and the CLI reading them.
 stub_mergify_scopes() {
   local vars
   # $3 is the scopes meta-data, e.g. '{"backend": "true", "frontend": "false"}'
@@ -199,6 +201,9 @@ stub_mergify_scopes() {
     exit 0
     ;;
   scopes-send)
+    if [[ -n "${STUB_OTHER_JOB:-}" ]]; then
+      env -u STUB_OTHER_JOB bash -c "$STUB_OTHER_JOB"
+    fi
     sent_scopes='[]'
     sent_all=false
     if scopes_json="$(mergify_cli_value "$parsed" scopes-json)"; then
