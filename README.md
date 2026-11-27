@@ -199,7 +199,7 @@ steps:
   - label: "Get git refs"
     key: git-refs
     plugins:
-      - mergifyio/mergify-ci#v22:
+      - mergifyio/mergify-ci#v23:
           action: scopes-git-refs
 
   - label: "Generate scopes"
