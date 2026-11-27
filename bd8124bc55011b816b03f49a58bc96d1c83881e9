@@ -1,0 +1,1 @@
+make_work_dir falls back to /tmp when TMPDIR is unset, empty or not a directory, test added; reworded the test TMPDIR comment
