@@ -21,6 +21,26 @@ git_refs_has_for_scopes() {
   grep -qE -- '^[[:space:]]*(-[[:alnum:]], )?--for-scopes([[:space:]]|$)' <<<"$help"
 }
 
+# Make a directory of the job's own for the files the step hands the CLI, into
+# the variable named <var>, removed when the hook's shell exits however it
+# exits. It goes under TMPDIR, or under /tmp, where the step's files went
+# before, when TMPDIR is unset, empty or not a directory: mktemp names it, so
+# no other job on the agent's host writes to it even there. Once per hook: the
+# trap replaces the one a previous call set.
+make_work_dir() {
+  local __tmp="${TMPDIR:-}" __dir
+  if [[ ! -d "$__tmp" ]]; then
+    __tmp=/tmp
+  fi
+  __dir="$(mktemp -d "${__tmp}/mergify-ci.XXXXXX")"
+  # The path is expanded now, as <var> may be a local gone by then. errexit
+  # still holds in the trap: `|| true` keeps a failed cleanup from failing a
+  # step that did its work.
+  # shellcheck disable=SC2064
+  trap "rm -rf -- $(printf '%q' "$__dir") || true" EXIT
+  printf -v "$1" '%s' "$__dir"
+}
+
 run_scopes_git_refs() {
   log_info "Detecting git refs..."
 
@@ -51,7 +71,9 @@ run_scopes() {
     export MERGIFY_CONFIG_PATH="$config_path"
   fi
 
-  local scopes_file="/tmp/mergify-scopes.json"
+  local work_dir
+  make_work_dir work_dir
+  local scopes_file="${work_dir}/scopes.json"
   mergify ci scopes --write "$scopes_file"
 
   # Upload to Mergify API only in pull request context
@@ -75,7 +97,7 @@ run_scopes() {
   local extra_scopes
   plugin_config extra_scopes SCOPES ""
   if [[ -n "$extra_scopes" ]]; then
-    local extra_scopes_file="/tmp/mergify-extra-scopes.txt"
+    local extra_scopes_file="${work_dir}/extra-scopes.txt"
     printf '%s\n' "$extra_scopes" | tr ',' '\n' > "$extra_scopes_file"
     args+=(--scopes-file "$extra_scopes_file")
   fi
@@ -124,25 +146,28 @@ run_scopes_upload() {
     scopes_raw="$(buildkite-agent meta-data get "mergify-ci.scopes" 2>/dev/null || true)"
   fi
 
-  # A pull request that impacts every scope may carry no concrete one.
-  if [[ -z "$scopes_raw" ]] && ! all_scopes_requested; then
-    log_error "No scopes found: set 'scopes' in plugin config or run a 'scopes' step first"
-    exit 1
-  fi
-
   # Support both JSON ({"backend":"true",...}) and CSV (backend,frontend) formats
-  if [[ -z "$scopes_raw" ]]; then
-    scopes_json="[]"
-  elif jq -e 'type == "object"' >/dev/null 2>&1 <<<"$scopes_raw"; then
+  if jq -e 'type == "object"' >/dev/null 2>&1 <<<"$scopes_raw"; then
     # JSON object: extract keys where value is "true"
     scopes_json=$(jq '[to_entries[] | select(.value == "true") | .key]' <<<"$scopes_raw")
   else
-    # CSV: split into JSON array
-    scopes_json=$(jq -R -s 'rtrimstr("\n") | split(",")' <<<"$scopes_raw")
+    # CSV: one name per comma or line, each trimmed and the blank ones
+    # dropped, the way `ci scopes-send` reads the extra scopes the `scopes`
+    # step hands it.
+    scopes_json=$(printf '%s\n' "$scopes_raw" | tr ',' '\n' |
+      jq -R -s 'split("\n") | map(sub("^\\s+"; "") | sub("\\s+$"; "") | select(length > 0))')
+
+    # A pull request that impacts every scope may carry no concrete one.
+    if [[ "$scopes_json" == "[]" ]] && ! all_scopes_requested; then
+      log_error "No scopes found: set 'scopes' in plugin config or run a 'scopes' step first"
+      exit 1
+    fi
   fi
 
   # Build scopes file
-  local scopes_file="/tmp/mergify-scopes.json"
+  local work_dir
+  make_work_dir work_dir
+  local scopes_file="${work_dir}/scopes.json"
   jq -n \
     --arg base "$base" \
     --arg head "$head" \

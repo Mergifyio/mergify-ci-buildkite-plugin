@@ -6,6 +6,16 @@ setup() {
   export BUILDKITE="true"
   export BUILDKITE_PULL_REQUEST="42"
   unset MERGIFY_API_URL BUILDKITE_PLUGIN_MERGIFY_CI_MERGIFY_API_URL
+  # The TMPDIR the agent's host gives every job, one per test here, so a test
+  # can list what the steps leave in it.
+  export TMPDIR="${BATS_TEST_TMPDIR}/tmp"
+  mkdir -p "$TMPDIR"
+}
+
+# mergify.log, with the directory the step's files go in spelled <work_dir>:
+# mktemp names it.
+mergify_log() {
+  sed -E "s#${TMPDIR}/mergify-ci\.[[:alnum:]]+#<work_dir>#g" "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
 @test "scopes-git-refs: stores base and head in meta-data" {
@@ -55,7 +65,7 @@ setup() {
   run bash hooks/command
 
   [ "$status" -eq 0 ]
-  grep -Fx -- "scopes-send --scopes-json /tmp/mergify-scopes.json" "${BATS_TEST_TMPDIR}/mergify.log"
+  mergify_log | grep -Fx -- "scopes-send --scopes-json <work_dir>/scopes.json"
   grep -Fx -- 'scopes-json={"scopes":["backend"]}' "${BATS_TEST_TMPDIR}/mergify.log"
   grep -Fx -- "MERGIFY_API_URL=https://api.mergify.com" "${BATS_TEST_TMPDIR}/mergify.log"
 }
@@ -85,7 +95,7 @@ setup() {
   run bash hooks/command
 
   [ "$status" -eq 0 ]
-  grep -Fx -- "scopes-send --scopes-json /tmp/mergify-scopes.json" "${BATS_TEST_TMPDIR}/mergify.log"
+  mergify_log | grep -Fx -- "scopes-send --scopes-json <work_dir>/scopes.json"
   grep -Fx -- 'sent={"scopes":["backend"],"all_scopes":false}' "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
@@ -112,7 +122,7 @@ setup() {
   run bash hooks/command
 
   [ "$status" -eq 0 ]
-  grep -Fx -- "scopes-send --scopes-json /tmp/mergify-scopes.json" "${BATS_TEST_TMPDIR}/mergify.log"
+  mergify_log | grep -Fx -- "scopes-send --scopes-json <work_dir>/scopes.json"
 }
 
 @test "scopes: falls back to MERGIFY_API_URL env var when mergify_api_url config is unset" {
@@ -137,6 +147,51 @@ setup() {
   [[ "$output" == *"Mergify token is not set"* ]]
 }
 
+@test "scopes: sends its own scopes while another job on the host sends others" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+
+  stub_mergify_scopes "abc123" "def456" '{"backend": "true"}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES="lib-a"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+  # A `scopes` job with extra scopes of its own, then a `scopes-upload` one:
+  # between them they write both files this step hands the CLI.
+  export STUB_OTHER_JOB="BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES=lib-b bash hooks/command; BUILDKITE_PLUGIN_MERGIFY_CI_ACTION=scopes-upload BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES=frontend bash hooks/command"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  # The other jobs' reports, then this one's.
+  [ "$(grep '^sent=' "${BATS_TEST_TMPDIR}/mergify.log")" = $'sent={"scopes":["backend","lib-b"],"all_scopes":false}\nsent={"scopes":["frontend"],"all_scopes":false}\nsent={"scopes":["backend","lib-a"],"all_scopes":false}' ]
+  # Each removed its own directory when its step ended.
+  [ -z "$(ls -A "$TMPDIR")" ]
+}
+
+@test "scopes: makes its directory under /tmp when TMPDIR is unset, empty or missing" {
+  stub_mergify_scopes "abc123" "def456" '{"backend": "true"}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  local tmpdir work_dir
+  for tmpdir in unset "" "${BATS_TEST_TMPDIR}/missing"; do
+    rm -f "${BATS_TEST_TMPDIR}/mergify.log"
+    if [[ "$tmpdir" == "unset" ]]; then
+      run env -u TMPDIR bash hooks/command
+    else
+      run env TMPDIR="$tmpdir" bash hooks/command
+    fi
+
+    [ "$status" -eq 0 ]
+    grep -Fx -- 'scopes-json={"scopes":["backend"]}' "${BATS_TEST_TMPDIR}/mergify.log"
+    work_dir="$(sed -nE 's#^scopes-send --scopes-json (/tmp/mergify-ci\.[[:alnum:]]+)/scopes\.json$#\1#p' "${BATS_TEST_TMPDIR}/mergify.log")"
+    [ -n "$work_dir" ]
+    [ ! -e "$work_dir" ]
+  done
+  [ ! -e "${BATS_TEST_TMPDIR}/missing" ]
+}
+
 @test "scopes-upload: reads CSV scopes from plugin config" {
   mkdir -p "${BATS_TEST_TMPDIR}/metadata"
   echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
@@ -150,8 +205,83 @@ setup() {
   run bash hooks/command
 
   [ "$status" -eq 0 ]
-  grep -Fx -- "scopes-send --scopes-json /tmp/mergify-scopes.json" "${BATS_TEST_TMPDIR}/mergify.log"
+  mergify_log | grep -Fx -- "scopes-send --scopes-json <work_dir>/scopes.json"
   grep -Fx -- 'scopes-json={"base_ref":"abc123","head_ref":"def456","scopes":["backend","frontend"]}' "${BATS_TEST_TMPDIR}/mergify.log"
+}
+
+@test "scopes-upload: reads a name per comma or line, trimmed, blank ones dropped" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+
+  stub_mergify_scopes "abc123" "def456" '{}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES=$' backend, ,\tfrontend \nlib-a\n'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  grep -Fx -- 'scopes-json={"base_ref":"abc123","head_ref":"def456","scopes":["backend","frontend","lib-a"]}' "${BATS_TEST_TMPDIR}/mergify.log"
+}
+
+@test "scopes-upload: fails when every configured name is blank" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+
+  stub_mergify_scopes "abc123" "def456" '{}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  # `scopes: "${A},${B}"` with both unset when the pipeline was uploaded.
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES=" , "
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  run bash hooks/command
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"No scopes found"* ]]
+  [ ! -f "${BATS_TEST_TMPDIR}/mergify.log" ]
+}
+
+@test "scopes-upload: sends its own scopes while another job on the host sends others" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+
+  stub_mergify_scopes "abc123" "def456" '{"backend": "true"}'
+  export BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="scopes-upload"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES="frontend"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+  export STUB_OTHER_JOB="BUILDKITE_PLUGIN_MERGIFY_CI_ACTION=scopes BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES= bash hooks/command"
+
+  run bash hooks/command
+
+  [ "$status" -eq 0 ]
+  # The other job's report, then this one's.
+  [ "$(grep '^sent=' "${BATS_TEST_TMPDIR}/mergify.log")" = $'sent={"scopes":["backend"],"all_scopes":false}\nsent={"scopes":["frontend"],"all_scopes":false}' ]
+  # Each removed its own directory when its step ended.
+  [ -z "$(ls -A "$TMPDIR")" ]
+}
+
+@test "scopes and scopes-upload: remove their directory when the step fails" {
+  mkdir -p "${BATS_TEST_TMPDIR}/metadata"
+  echo "abc123" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.base"
+  echo "def456" > "${BATS_TEST_TMPDIR}/metadata/mergify-ci.head"
+
+  stub_command mergify 1
+  export BUILDKITE_PLUGIN_MERGIFY_CI_SCOPES="backend"
+  export BUILDKITE_PLUGIN_MERGIFY_CI_TOKEN="test-token"
+
+  local action
+  for action in scopes scopes-upload; do
+    run env BUILDKITE_PLUGIN_MERGIFY_CI_ACTION="$action" bash hooks/command
+
+    [ "$status" -ne 0 ]
+    [ -z "$(ls -A "$TMPDIR")" ]
+  done
+  # Each failed on a CLI call given a file in its directory.
+  mergify_log | grep -Fx -- "ci scopes --write <work_dir>/scopes.json"
+  mergify_log | grep -Fx -- "ci scopes-send --scopes-json <work_dir>/scopes.json"
 }
 
 @test "scopes-upload: reads JSON scopes from meta-data" {
@@ -234,7 +364,7 @@ setup() {
   run bash hooks/command
 
   [ "$status" -eq 0 ]
-  grep -Fx -- "scopes-send --scopes-json /tmp/mergify-scopes.json --all" "${BATS_TEST_TMPDIR}/mergify.log"
+  mergify_log | grep -Fx -- "scopes-send --scopes-json <work_dir>/scopes.json --all"
   grep -Fx -- 'sent={"scopes":["backend"],"all_scopes":true}' "${BATS_TEST_TMPDIR}/mergify.log"
 }
 
